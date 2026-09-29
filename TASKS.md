@@ -360,23 +360,23 @@ truth, and the report marks them as expected.
 - [~] Results → **Ground Truth** tab: scenario, table, affected IDs, expected behaviour
 
 ### H6 · Invoice PDF, backend + UI (4:45–5:30)
-- [ ] `backend/app/documents/invoice_pdf.py` (ReportLab): header, billed-to,
+- [x] `backend/app/documents/invoice_pdf.py` (ReportLab): header, billed-to,
       line items, tax, total, matching the PDF's invoice design; uses
       `schema.document_hints` to map the invoice / item / customer tables
-- [ ] `backend/app/api/documents.py`: `GET /api/datasets/{id}/documents/invoices` (list IDs) +
+- [x] `backend/app/api/documents.py`: `GET /api/datasets/{id}/documents/invoices` (list IDs) +
       `GET /api/datasets/{id}/documents/invoices/{invoice_id}.pdf`
-- [ ] `backend/tests/test_documents.py` (generate the finance template → PDF bytes start with `%PDF`)
-- [~] UI **Documents** tab: invoice picker + `<iframe>` PDF preview *(UI built; shows "coming soon" while the backend returns 501)*
+- [x] `backend/tests/test_documents.py` (generate the finance template → PDF bytes start with `%PDF`) *(7 tests incl. total = sum of items for every invoice)*
+- [~] UI **Documents** tab: invoice picker + `<iframe>` PDF preview *(built; real PDFs since H6 backend; awaiting browser QA)*
 
 **Accept:** the invoice total in the PDF equals the sum of its items in the data.
 
 ### H7 · ZIP export, backend + UI (5:30–6:00)
-- [ ] `backend/app/export/zip_export.py`: `tables/*.csv`, `tables/*.json`,
+- [x] `backend/app/export/zip_export.py`: `tables/*.csv`, `tables/*.json`,
       `schema.json`, `validation_report.json`, `ground_truth.json`,
       `documents/invoices/*.pdf` (first 20)
-- [ ] `backend/app/api/export.py`: `GET /api/datasets/{id}/export.zip`
-- [ ] `backend/tests/test_export.py`
-- [~] Export step: download ZIP button + per-table CSV download *(UI built; ZIP shows "coming soon" while the backend returns 501)*
+- [x] `backend/app/api/export.py`: `GET /api/datasets/{id}/export.zip` *(streamed from a spooled temp file; 290k rows → 11 MB in ~3 s)*
+- [x] `backend/tests/test_export.py` *(6 tests)*
+- [~] Export step: download ZIP button + per-table CSV download *(built; real ZIP since H7 backend; awaiting browser QA)*
 
 ### H8 · Deploy frontend (6:00–6:45)
 - [ ] Vercel project from `frontend/`, `VITE_API_URL` = the Railway URL
@@ -410,10 +410,9 @@ Format: `- [ ] YYYY-MM-DD HH:MM · FROM → TO · what · why`
 - [ ] 2026-09-29 · F → H · New rule in `CLAUDE.md` (Manual QA Test Rule): at the end of each session write `Manual Testing/frontendtest<N>.md` for our QA member. `frontendtest1.md` must include full setup (Node, `npm install`, `.env`, `npm run dev`, backend start: see `Manual Testing/backendtest1.md` Part A).
 - [ ] 2026-09-29 · F → H · **Contract change proposal (needs both to agree):** add `notes: list[str] = []` to `GenerateResponse` (+ `types.ts`). The engine now caps child tables at `MAX_ROWS_PER_TABLE` (e.g. 100k customers → invoices capped) and produces a message like "invoices would have 450,000 rows; capped at 100,000". UI would show it as an info banner on Results. Additive, nothing breaks if ignored.
 
-- [ ] 2026-09-30 · F → H · `Manual Testing/frontendtest1.md` A5 sets `$env:AI_PROVIDER = "mock"` and `.env.local` defaulted to `VITE_USE_FIXTURES=true`: together they made QA see the same mock data every time. Please change A5 to use `backend/.env` (real AI) and say "mock" is only for offline tests; also note the ZIP now shows the 501 "coming soon" path until H7.
-- [ ] 2026-09-30 · F → H · Small UX bug: in Column details, after **Save** the Save button disables, focus drops to `<body>`, and **Escape** no longer closes the panel (`ColumnDetails.tsx` listens for Escape only inside the panel). Suggest a document-level Escape listener while the panel is open.
-- [ ] 2026-09-30 · F → H · UX: Configure defaults to "Medium 5,000"; for AI-drafted schemas with deep links (e.g. 1 pet → up to 50 appointments) that already shows "Large job" before the user touched anything. Consider defaulting to Small 500 when the estimate exceeds the per-table limit.
-
+- [ ] 2026-09-30 · H → F · H6 is live: `GET /api/datasets/{id}/documents/invoices/{invoice_id}.pdf` returns a real PDF. New additive error code `invoice_not_found` (404) for an ID that is not in the dataset. Please add it to the codes list and mark the PDF row "real (H6)" and the ZIP row "real (H7)" in the status table of `docs/api-contract.md`. The ZIP also contains a `README.txt` (additive) · contract doc is yours; no shape change
+- [ ] 2026-09-30 · H → F · Real-AI `from-prompt` returns rules with an empty `description` (seen with Gemini + Groq for a hospital prompt: 5 rules, all `""`), so check names become `"Rule r3: "`. The frontend now builds a fallback sentence, but please fill `description` in the backend (e.g. in `ai/validate.py`) so the report and exports read well too · found while testing real AI keys
+- [ ] 2026-09-30 · H → F · `backend/.env.example` has `GEMINI_MODEL=gemini-2.5-flash`; for a newly created Gemini key Google answers `404 … no longer available to new users, use models/gemini-3.8-flash`. Suggest changing the example (and the Railway env) to `gemini-3.8-flash` · new team keys fail otherwise
 ---
 
 ## 8. Enhancements backlog (ONLY after all MUST-HAVE tasks are `[x]`)
@@ -453,4 +452,6 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 - 2026-09-29 · F · done: Supabase MCP added (`.mcp.json`, shared with H); demo DB seeded on Supabase (2 migrations), read-only `demo_reader` role with RLS + Data API lockdown, security advisor clean · left: set demo_reader password, run from-db against Supabase, F9 deploy · blockers: none
 - 2026-09-29 · F · done: Supabase end-to-end verified (read-only login through the pooler, 10 rules found, generation PASS); fixed low-cardinality text columns (city/country/company) ignoring the sample → similarity 64% → 96% · left: F9 deploy, share the demo URL with H privately · blockers: none
 - 2026-09-29 · H · done: frontend rebuilt from the Stitch references (Vite + React + TS + Tailwind v4 + shadcn/ui + lucide, @xyflow/react, @tanstack/react-table v9): landing page, studio shell (collapsible sidebar, stepper that only unlocks reached steps), all 5 steps (4 source sub-screens incl. 3-step DB flow with auto-added parents, schema graph + rules + column details, configure + edge cases + generating screen, results tabs Checks/Data/Edge cases/Invoices, export with client-side CSV); typed API client + fixtures mode; verified against the local backend (templates, prompt, CSV, SQLite, propose, generate 5k with 3 scenarios, paging, invoice list, 501/404/422 errors all handled); `npm run build` clean; QA `Manual Testing/frontendtest1.md` · left: browser click-through, commit + push (waiting for OK), H6/H7 backend (PDF, ZIP), H8 deploy · blockers: none (`frontend` branch has rewritten copies of main's commits after `git pull --rebase`; run `git reset --keep origin/main` before committing)
-- 2026-09-30 · F · done: real-AI end-to-end QA with Playwright (frontendtest1 1–17 PASS on real backend, prompts "vet clinic" + "university" verified row by row); root cause of repeated mock data = `frontend/.env.local` `VITE_USE_FIXTURES=true` (+ test doc forcing `AI_PROVIDER=mock`); fixed engine ignoring `range` rule bounds (values piled at the max); schema prompt asks for realistic domain values and keeps user-named values exact; 174 tests green; QA `Manual Testing/backendtest5.md` · left: F9 deploy; 3 Requests to H · blockers: Gemini free-tier quota exhausted (429), Groq fallback covers it
+- 2026-09-30 · H · done: H6 invoice PDF backend (`app/documents/invoice_data.py` maps columns via document_hints + the sum_of_children rule + semantic types, so any invoice-like schema works; `invoice_pdf.py` ReportLab layout from the theme PDF with billed-to, dates, status, items, subtotal/tax when relevant, total, amount paid / balance due, "not a real invoice" footer; deterministic bytes); `GET …/invoices/{id}.pdf` wired with `invoice_not_found`; `tests/test_documents.py` 7 tests; full suite 180 passed, 6 skipped; QA `Manual Testing/frontendtest2.md` · left: browser QA, H7 ZIP (reuse `invoice_pdf_bytes`), H8 deploy · blockers: none (Request to F: list `invoice_not_found` in the contract doc)
+- 2026-09-30 · H · done: H7 ZIP export (`app/export/zip_export.py`: tables as CSV + JSON formatted like `/tables` paging, schema.json, validation_report.json, ground_truth.json, first 20 invoice PDFs via H6, README.txt; spooled temp file + streamed response with Content-Length); `tests/test_export.py` 6 tests; full suite 186 passed, 6 skipped; 20k customers (≈290k rows) → 11 MB ZIP in 2.7 s; QA `Manual Testing/frontendtest3.md` · left: browser QA, commit + push, H8 deploy · blockers: none
+- 2026-09-30 · H · done: UI pass from real screenshots (1440/1024/375): fixed `cn` dropping custom font sizes app-wide; sidebar Tabular/Relational/Documents now navigate; schema layout (bar no longer overlaps, collapsible rules panel, readable edge labels), rules panel redesign + fallback sentences for AI rules without descriptions; results/export layout fixes; landing page rebuilt (new logo in theme blue, headline "Test environments, not just fake data.", comparison, 4 steps, features, privacy, FAQ, one colour theme); source picker redesigned (inline Describe card, compact source cards, finance-example banner); studio opens at the top after landing anchors; verified real AI keys locally (Gemini + Groq) · left: browser QA by teammate, H8 deploy · blockers: none (2 Requests to F: AI rule descriptions, `gemini-3.8-flash` in `.env.example`)

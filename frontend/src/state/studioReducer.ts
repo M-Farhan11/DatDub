@@ -11,6 +11,8 @@ import { STEPS, type Step } from "@/components/studio/steps"
 
 export type SourceScreen = "picker" | "prompt" | "csv" | "database" | "template"
 
+export type ResultsTab = "checks" | "data" | "edge-cases" | "invoices"
+
 export interface ColumnRef {
   table: string
   column: string
@@ -42,6 +44,9 @@ export interface StudioState {
   /** proposal id -> count; presence means selected */
   selectedScenarios: Record<string, number>
   result: GenerateResponse | null
+  /** Open tab on the Results step, and the table shown in its Data tab. */
+  resultsTab: ResultsTab
+  dataTable: string | null
   /** Settings and scenarios the current result was generated with. */
   generatedWith: { config: GenerationConfig; scenarios: ScenarioSelection[] } | null
   /** Memory only: never persisted, never logged. */
@@ -70,6 +75,7 @@ export type StudioAction =
   | { type: "setScenarioCount"; id: string; count: number }
   | { type: "generated"; result: GenerateResponse; config: GenerationConfig; scenarios: ScenarioSelection[] }
   | { type: "clearResult" }
+  | { type: "openResults"; tab: ResultsTab; table?: string | null }
   | { type: "setDbConnection"; connection: DbConnection | null }
   | { type: "reset" }
 
@@ -98,6 +104,8 @@ export const initialStudioState: StudioState = {
   proposals: [],
   selectedScenarios: {},
   result: null,
+  resultsTab: "checks",
+  dataTable: null,
   generatedWith: null,
   dbConnection: null,
 }
@@ -185,11 +193,22 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
         ...state,
         result: action.result,
         generatedWith: { config: action.config, scenarios: action.scenarios },
+        resultsTab: "checks",
+        dataTable: null,
         step: "Results",
         reached: stepIndex("Results"),
       }
     case "clearResult":
       return { ...state, result: null, generatedWith: null, step: "Configure", reached: stepIndex("Configure") }
+    case "openResults":
+      if (!state.result) return state
+      return {
+        ...state,
+        step: "Results",
+        reached: Math.max(state.reached, stepIndex("Results")),
+        resultsTab: action.tab,
+        dataTable: action.table === undefined ? state.dataTable : action.table,
+      }
     case "setDbConnection":
       return { ...state, dbConnection: action.connection }
     case "reset":

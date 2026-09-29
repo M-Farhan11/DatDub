@@ -47,7 +47,7 @@ export function SizeSettingsCard({ schema, config, onRowsChange, onConfigChange,
   return (
     <Card title="Size and settings" description="How much data to create and how messy it should be.">
       <div className="space-y-6">
-        <div className="space-y-3">
+        <div className="flex flex-col items-start gap-2">
           <span className="font-heading text-label-lg font-medium text-ink">Presets</span>
           <SegmentedControl
             label="Dataset size preset"

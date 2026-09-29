@@ -13,9 +13,11 @@ export function Root() {
   // Set by "Try an example"; the source picker loads the finance template once, then clears it.
   const [pendingExample, setPendingExample] = useState(false)
 
-  // Each view starts at the top of the page.
+  // Each view starts at the top. Drop any landing anchor (#faq, #features…) so the
+  // browser does not jump back to it, and skip smooth scrolling for this jump.
   useEffect(() => {
-    window.scrollTo(0, 0)
+    if (window.location.hash) history.replaceState(null, "", window.location.pathname + window.location.search)
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" })
   }, [view])
 
   return view === "landing" ? (

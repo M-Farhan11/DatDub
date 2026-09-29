@@ -85,12 +85,22 @@ synthetic data studio** (see `idea.md`).
   @tanstack/react-table v9; landing page + studio shell from the Stitch references;
   typed API client (`src/api/client.ts`, `VITE_USE_FIXTURES` toggle) + typed fixtures;
   studio state (context + reducer; DB credentials in memory only).
+- **DONE (H6 backend, 2026-09-30):** invoice PDFs. `app/documents/invoice_data.py`
+  finds the columns through `document_hints`, the `sum_of_children` rule and semantic
+  types; `app/documents/invoice_pdf.py` renders the theme-PDF layout with ReportLab
+  (deterministic bytes, "not a real invoice" footer); `invoice_pdf_bytes()` is ready
+  for the H7 ZIP. `tests/test_documents.py`: 7 tests.
+- **DONE (H7 backend, 2026-09-30):** ZIP export (`app/export/zip_export.py`): tables as
+  CSV + JSON, schema, validation report, ground truth, first 20 invoice PDFs, README;
+  streamed from a spooled temp file. `tests/test_export.py`: 6 tests; full suite 186 passed.
 - **IN PROGRESS (built, verified against the local backend, awaiting browser QA):**
   H1 source screens (prompt, CSV, 3-step DB flow, templates), H2 schema graph +
-  column details, H3 configure, H4 results, H5 edge cases + answer key, H6/H7 UI parts
-  (invoice viewer and ZIP button show "coming soon" while the backend returns 501).
-- **NEXT:** browser click-through (`Manual Testing/frontendtest1.md`), commit + push,
-  H6 invoice PDF backend, H7 ZIP backend, H8 deploy.
+  column details, H3 configure, H4 results, H5 edge cases + answer key, H6 invoice
+  viewer and H7 export screen (both now use the real backend).
+- **DONE (UI pass, 2026-09-30):** landing page rebuilt with the new logo (theme blue) and
+  the headline "Test environments, not just fake data."; source picker redesigned; schema,
+  results and export layout fixes; sidebar workspaces navigate; app-wide font-size fix.
+- **NEXT:** browser QA (`Manual Testing/frontendtest1–3.md`), H8 deploy.
 
 ## BLOCKED
 

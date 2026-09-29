@@ -1,44 +1,42 @@
 import { useEffect, useRef } from "react"
-import { ArrowRight, Database, FileUp, LayoutTemplate, Loader2, SquarePen, type LucideIcon } from "lucide-react"
+import { Database, FileSpreadsheet, LayoutTemplate, type LucideIcon } from "lucide-react"
 import { ErrorCallout } from "@/components/shared/ErrorCallout"
 import type { SourceScreen } from "@/state/studioReducer"
 import { useLoadTemplate } from "@/state/useLoadTemplate"
 import { useStudio } from "@/state/useStudio"
-import { SourceCard } from "./SourceCard"
+import { ExampleBanner } from "./source/ExampleBanner"
+import { QuickDescribeCard } from "./source/QuickDescribeCard"
+import { SourceOptionCard } from "./source/SourceOptionCard"
 
 interface SourceOption {
-  screen: Exclude<SourceScreen, "picker">
+  screen: Exclude<SourceScreen, "picker" | "prompt">
   title: string
   description: string
   icon: LucideIcon
-  badge?: string
+  tags: string[]
 }
 
-const SOURCES: SourceOption[] = [
-  {
-    screen: "prompt",
-    title: "Describe it",
-    description: "Write what your system does and we draft the tables.",
-    icon: SquarePen,
-    badge: "Prompt",
-  },
+const EXISTING_DATA: SourceOption[] = [
   {
     screen: "csv",
     title: "Upload CSV files",
-    description: "One file per table. Types and keys are detected.",
-    icon: FileUp,
+    description: "One file per table. Types, keys and links are detected.",
+    icon: FileSpreadsheet,
+    tags: [".csv", "Multiple files"],
   },
   {
     screen: "database",
     title: "Connect a database",
-    description: "Postgres or Supabase, read-only. SQLite upload also works.",
+    description: "Read the structure and a small sample, read-only.",
     icon: Database,
+    tags: ["Postgres", "Supabase", "SQLite"],
   },
   {
     screen: "template",
     title: "Use a template",
-    description: "Finance or e-commerce, ready to generate.",
+    description: "A ready-made schema with keys and business rules.",
     icon: LayoutTemplate,
+    tags: ["Finance", "E-commerce"],
   },
 ]
 
@@ -61,49 +59,38 @@ export function SourcePicker({ autoLoadExample = false, onExampleStarted }: Sour
     }
   }, [autoLoadExample, load, onExampleStarted])
 
-  const loadingExample = loadingId === "finance"
-
   return (
-    <div className="mx-auto w-full max-w-[880px] px-gutter-lg pt-12 pb-24 md:pt-16">
-      <div className="mb-10 text-center">
+    <div className="mx-auto w-full max-w-[960px] px-gutter-lg pt-10 pb-16 md:pt-12">
+      <header className="mb-8 text-center">
         <h1 className="font-heading text-headline-xl font-medium tracking-tight text-ink md:text-display">
           Where should we start?
         </h1>
         <p className="mx-auto mt-2 max-w-xl text-body-lg text-ink-muted">
           Pick a source. You review everything before any data is generated.
         </p>
+      </header>
+
+      <QuickDescribeCard onExpand={() => dispatch({ type: "openSource", screen: "prompt" })} />
+
+      <div className="mt-8">
+        <h2 className="mb-3 font-heading text-label-lg font-medium text-ink-muted">Or start from existing data</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {EXISTING_DATA.map((option) => (
+            <SourceOptionCard
+              key={option.screen}
+              title={option.title}
+              description={option.description}
+              icon={option.icon}
+              tags={option.tags}
+              onSelect={() => dispatch({ type: "openSource", screen: option.screen })}
+            />
+          ))}
+        </div>
       </div>
 
-      {error && <ErrorCallout className="mb-6" title="The finance example could not be loaded" message={error} />}
-
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        {SOURCES.map((source) => (
-          <SourceCard
-            key={source.screen}
-            title={source.title}
-            description={source.description}
-            icon={source.icon}
-            badge={source.badge}
-            onSelect={() => dispatch({ type: "openSource", screen: source.screen })}
-          />
-        ))}
-      </div>
-
-      <div className="mt-12 flex flex-wrap items-center justify-center gap-2 text-body-md text-ink-muted">
-        <span>Not sure where to begin?</span>
-        <button
-          type="button"
-          onClick={() => void load("finance")}
-          disabled={loadingExample}
-          className="group inline-flex items-center gap-1 rounded-sm font-heading text-label-lg font-medium text-primary-deep hover:underline disabled:no-underline disabled:opacity-70"
-        >
-          {loadingExample ? "Loading the finance example…" : "Try the finance example"}
-          {loadingExample ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          )}
-        </button>
+      <div className="mt-8">
+        {error && <ErrorCallout className="mb-4" title="The finance example could not be loaded" message={error} />}
+        <ExampleBanner loading={loadingId === "finance"} onLoad={() => void load("finance")} />
       </div>
     </div>
   )

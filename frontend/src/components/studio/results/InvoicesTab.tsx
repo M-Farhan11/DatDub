@@ -103,7 +103,7 @@ export function InvoicesTab({ datasetId, onExpired }: InvoicesTabProps) {
             className={`${textInputClass} font-mono text-code-md`}
           />
         </div>
-        <ul className="max-h-[600px] space-y-1 overflow-y-auto">
+        <ul className="max-h-[max(240px,calc(100dvh-520px))] space-y-1 overflow-y-auto">
           {shown.map((id) => (
             <li key={id}>
               <button
@@ -139,7 +139,7 @@ export function InvoicesTab({ datasetId, onExpired }: InvoicesTabProps) {
           <iframe
             title={`Invoice ${selected ?? ""}`}
             src={preview.url}
-            className="h-[720px] w-full rounded-xl border border-line bg-card shadow-sm"
+            className="h-[max(460px,calc(100dvh-400px))] w-full rounded-xl border border-line bg-card shadow-sm"
           />
         )}
         {preview.kind === "coming-soon" && (

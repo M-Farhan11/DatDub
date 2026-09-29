@@ -50,7 +50,7 @@ function buildEdges(schema: DatasetSchema): Edge[] {
         type: "smoothstep",
         label: relationLabel(fk, table.name),
         style: { stroke: "var(--primary)", strokeWidth: 1.25 },
-        labelStyle: { fill: "var(--ink-muted)", fontSize: 11, fontFamily: "Inter, sans-serif" },
+        labelStyle: { fill: "var(--ink-muted)", fontSize: 11.5, fontWeight: 500, fontFamily: "Inter, sans-serif" },
         labelBgStyle: { fill: "var(--card)" },
         labelBgPadding: [6, 3],
         labelBgBorderRadius: 6,
@@ -68,7 +68,7 @@ function Graph({ schema, selected, onSelect }: SchemaGraphProps) {
   // Re-layout only when tables or links change; column edits keep dragged positions.
   useEffect(() => {
     setNodes(buildNodes(schema))
-    requestAnimationFrame(() => void fitView({ padding: 0.15 }))
+    requestAnimationFrame(() => void fitView({ padding: 0.12, maxZoom: 1 }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
@@ -85,7 +85,7 @@ function Graph({ schema, selected, onSelect }: SchemaGraphProps) {
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
         minZoom={0.3}
         maxZoom={1.6}
         nodesConnectable={false}

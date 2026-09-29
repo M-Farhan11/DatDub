@@ -44,7 +44,7 @@ export function ColumnDetails({ table, column, onSave, onClose }: ColumnDetailsP
   }
 
   return (
-    <div className="flex h-full flex-col" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+    <div className="flex min-h-0 flex-1 flex-col" onKeyDown={(e) => e.key === "Escape" && onClose()}>
       <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
         <div className="min-w-0">
           <p className="text-body-sm text-ink-muted">Column details</p>
