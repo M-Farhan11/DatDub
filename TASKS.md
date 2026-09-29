@@ -281,8 +281,11 @@ truth, and the report marks them as expected.
       ~60 payments), deterministic, every rule holds, natural edge cases; read-only role section
 - [x] DB business-rule handoff: in `schema_and_sample` mode rules are checked over whole
       tables with aggregate queries (`ingest/db_rules.py`, counts only, no rows leave the DB)
-- [ ] Create a Supabase project, run the seed, add a **read-only** role for the demo (human: needs the Supabase account)
-- [~] Verify `from-db` (both modes) against Supabase and a local Postgres: SQLite verified
+- [x] Supabase project `htdooohjsznvtgzxwkuv` seeded through the Supabase MCP (migrations `demo_finance_seed`,
+      `demo_reader_role_and_rls`): 40/100/250/63 rows, sanity checks 0, `demo_reader` SELECT-only + read-only
+      default + 10 s timeout, RLS on (policy for demo_reader only), anon/authenticated revoked, security advisor clean
+- [ ] Set the `demo_reader` password (owner, SQL editor) and put the pooler URL in the frontend "Use demo database" button (H) / Railway
+- [~] Verify `from-db` (both modes) against Supabase (waits for the demo_reader password) and a local Postgres: SQLite verified
       (`tests/test_db_rules.py`); Postgres test ready, needs `TEST_PG_SEED_URL` (scratch DB) to run
 
 > F8 notes: `infer_db_rules` checks allowed_values (drops a sampled category list that the
@@ -437,3 +440,4 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 - 2026-09-29 · F · done: F5 generation engine (profile-driven numerics/categories/dates, Faker value pools (Sonnet subagent), children-per-parent from distribution/Poisson, child-table cap keeping min children, rule enforcement incl. range/allowed_values/nested totals, null/outlier rates on unprotected columns, locale, API wired); 118 tests green incl. 5k < 5 s and 100k < 30 s; QA `Manual Testing/backendtest2.md` · left: F6 report, F7 injection, F8 Supabase, F9 deploy; contract request for `GenerateResponse.notes` · blockers: none
 - 2026-09-29 · F · done: F6 validation report (types/nullability, per-rule row checks for all 5 rule kinds, expected violations from ground truth, similarity = category TVD + histogram overlap, dedupe-safe parent lookups); contract doc example updated (no shape change); 127 tests green; QA `Manual Testing/backendtest3.md` · left: F7 injection + ground truth, F8 Supabase, F9 deploy · blockers: none
 - 2026-09-29 · F · done: reviewed the GPT pre-F7 audit (all 12 findings confirmed and fixed with regression tests); F7 scenario injection + ground truth with per-check expected-violation attribution; F8 seed script + DB rule inference via aggregate queries + UNIQUE constraints; 172 tests green (2 Postgres tests skipped: need credentials); QA `Manual Testing/backendtest4.md` · left: F8 Supabase project + run seed + read-only role (human), run `TEST_PG_SEED_URL` test, F9 deploy · blockers: Supabase account access
+- 2026-09-29 · F · done: Supabase MCP added (`.mcp.json`, shared with H); demo DB seeded on Supabase (2 migrations), read-only `demo_reader` role with RLS + Data API lockdown, security advisor clean · left: set demo_reader password, run from-db against Supabase, F9 deploy · blockers: none

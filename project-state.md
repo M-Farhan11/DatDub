@@ -65,8 +65,10 @@ synthetic data studio** (see `idea.md`).
   `Manual Testing/backendtest4.md`.
 - **DONE (F8, code part):** `scripts/seed_demo_db.sql`; DB rule inference with aggregate
   queries (`ingest/db_rules.py`); SQLite path verified.
-- **IN PROGRESS:** F8 infra: Supabase project + seed + read-only role; run the
-  Postgres test with `TEST_PG_SEED_URL` (scratch DB).
+- **DONE (F8, Supabase):** project `htdooohjsznvtgzxwkuv` seeded via the Supabase MCP;
+  `demo_reader` read-only role (no password yet), RLS + Data API lockdown.
+- **IN PROGRESS:** set the `demo_reader` password, then verify `/api/schema/from-db`
+  against the Supabase pooler.
 - **NEXT:** F9 deploy (Railway, 1 worker), then backlog enhancements.
 
 ## Haider (frontend + documents/export)

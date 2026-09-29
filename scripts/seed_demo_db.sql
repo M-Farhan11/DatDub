@@ -17,8 +17,8 @@
 -- invoices, partial payments, unpaid overdue invoices, a very long company name.
 --
 -- Run it in the Supabase SQL editor (or psql) as the project owner. It drops
--- and recreates ONLY the four demo tables below. Then run the read-only role
--- section at the bottom after replacing the password placeholder.
+-- and recreates ONLY the four demo tables below, then creates the read-only
+-- `demo_reader` role (no password: set it afterwards, see the bottom).
 
 BEGIN;
 
@@ -137,17 +137,37 @@ COMMIT;
 -- SELECT COUNT(*) FROM invoices i JOIN customers c USING (customer_id) WHERE i.issue_date < c.created_at OR i.due_date < i.issue_date;
 
 -- ---------------------------------------------------------------------------
--- Read-only role for the app (run once). Replace CHANGE_ME with a strong
--- password and keep it out of git. On Supabase, connect through the pooler
--- as user `demo_reader.<project-ref>`.
+-- Read-only role + lockdown (applied on Supabase as migration
+-- `demo_reader_role_and_rls`). The role is created WITHOUT a password; the
+-- project owner then runs, in the Supabase SQL editor (never commit it):
+--     ALTER ROLE demo_reader WITH LOGIN PASSWORD '<strong password>';
+-- Connect through the pooler as user `demo_reader.<project-ref>`.
 -- ---------------------------------------------------------------------------
--- DO $$
--- BEGIN
---     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'demo_reader') THEN
---         CREATE ROLE demo_reader LOGIN PASSWORD 'CHANGE_ME';
---     END IF;
--- END $$;
--- ALTER ROLE demo_reader SET default_transaction_read_only = on;
--- GRANT CONNECT ON DATABASE postgres TO demo_reader;
--- GRANT USAGE ON SCHEMA public TO demo_reader;
--- GRANT SELECT ON customers, invoices, invoice_items, payments TO demo_reader;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'demo_reader') THEN
+        CREATE ROLE demo_reader NOLOGIN;
+    END IF;
+END $$;
+ALTER ROLE demo_reader SET default_transaction_read_only = on;
+ALTER ROLE demo_reader SET statement_timeout = '10s';
+GRANT USAGE ON SCHEMA public TO demo_reader;
+GRANT SELECT ON customers, invoices, invoice_items, payments TO demo_reader;
+
+-- Supabase only: keep the tables off the public Data API (anon/authenticated keys)
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
+        REVOKE ALL ON customers, invoices, invoice_items, payments FROM anon, authenticated;
+    END IF;
+END $$;
+
+-- Row-level security: only demo_reader may read (the owner keeps full access)
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoice_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY demo_reader_select ON customers FOR SELECT TO demo_reader USING (true);
+CREATE POLICY demo_reader_select ON invoices FOR SELECT TO demo_reader USING (true);
+CREATE POLICY demo_reader_select ON invoice_items FOR SELECT TO demo_reader USING (true);
+CREATE POLICY demo_reader_select ON payments FOR SELECT TO demo_reader USING (true);
