@@ -1,11 +1,14 @@
 """AI semantic enrichment for ingested schemas (CSV, Postgres, SQLite).
 
 `build_ai_payload` is the privacy boundary: it sends column names, data
-types and aggregates only. PII columns send no statistics at all, and
-category values are sent only for low-cardinality, non-PII columns.
-PK and FK columns are left out (they stay `id`).
+types and aggregates only. PII columns send no statistics at all. Category
+values are sent only for non-PII columns already recognised as
+category/status/boolean, and only when every value looks like a short label
+(free text such as notes or diagnoses never leaves). PK and FK columns are
+left out (they stay `id`).
 """
 
+import re
 from typing import Any
 
 from app.ai.prompts import semantic_enrichment_prompt
@@ -14,7 +17,13 @@ from app.ai.service import get_ai_service
 from app.ai.validate import apply_enrichment
 from app.core.exceptions import AIProviderError
 from app.ingest.heuristics import CATEGORY_MAX_DISTINCT, STRONG, is_pii_semantic
-from app.schemas.dataset import DatasetSchema
+from app.schemas.dataset import ColumnSchema, DatasetSchema
+
+LABEL_MAX_CHARS = 24
+LABEL_MAX_WORDS = 3
+# a label is letters/digits with simple separators; no @, no long digit runs (codes, phone numbers)
+_LABEL = re.compile(r"^[^\W_][\w .&/+-]*$")
+_DIGIT_RUN = re.compile(r"\d{4,}")
 
 
 def build_ai_payload(schema: DatasetSchema) -> list[dict[str, Any]]:
@@ -35,12 +44,35 @@ def build_ai_payload(schema: DatasetSchema) -> list[dict[str, Any]]:
                 if c.data_type in ("integer", "float", "decimal", "date", "datetime"):
                     stats.update({k: v for k, v in (("min", p.min), ("max", p.max), ("mean", p.mean)) if v is not None})
                 entry["stats"] = stats
-                if p.top_values and len(p.top_values) < CATEGORY_MAX_DISTINCT:
-                    entry["categories"] = [v for v, _ in p.top_values]
+                labels = _shareable_labels(c)
+                if labels:
+                    entry["categories"] = labels
             columns.append(entry)
         if columns:
             tables.append({"name": t.name, "columns": columns})
     return tables
+
+
+def _shareable_labels(c: ColumnSchema) -> list[str] | None:
+    """Category values that may go to the AI, or None."""
+    p = c.profile
+    if p is None or not p.top_values or len(p.top_values) >= CATEGORY_MAX_DISTINCT:
+        return None
+    if c.data_type != "boolean" and c.semantic_type not in ("category", "status"):
+        return None
+    values = [str(v) for v, _ in p.top_values]
+    if all(_is_label(v) for v in values):
+        return values
+    return None
+
+
+def _is_label(v: str) -> bool:
+    return (
+        len(v) <= LABEL_MAX_CHARS
+        and len(v.split()) <= LABEL_MAX_WORDS
+        and bool(_LABEL.match(v))
+        and not _DIGIT_RUN.search(v)
+    )
 
 
 async def enrich_schema(schema: DatasetSchema) -> list[str]:

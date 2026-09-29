@@ -23,6 +23,14 @@ _URL = re.compile(r"^https?://\S+$", re.I)
 _IBAN = re.compile(r"^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$")
 _CURRENCY = re.compile(r"^\s*-?[$€£¥₹]\s?-?[\d,]+(\.\d+)?\s*$|^\s*-?[\d,]+(\.\d+)?\s?(USD|EUR|GBP|PKR)\s*$", re.I)
 _BOOL = {"true", "false", "yes", "no", "t", "f", "y", "n"}
+BOOL_TRUE = {"true", "yes", "y", "t", "1", "1.0"}
+BOOL_FALSE = {"false", "no", "n", "f", "0", "0.0"}
+
+
+def bool_label(value) -> str | None:
+    """"true" / "false" for any boolean spelling (yes/no, t/f, 1/0, True/False), else None."""
+    v = str(value).strip().lower()
+    return "true" if v in BOOL_TRUE else "false" if v in BOOL_FALSE else None
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}")
 
 # (name pattern, semantic type, pii)

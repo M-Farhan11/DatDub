@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.engine import generator
 from app.main import app
-from app.schemas import ColumnProfile, ColumnSchema, DatasetSchema, GroundTruthEntry, TableSchema
+from app.schemas import ColumnProfile, ColumnSchema, DatasetSchema, TableSchema
 from app.templates import ecommerce, finance
 from app.validation.checks import build_report, similarity
 from tests.test_ingest import _upload, finance_csvs
@@ -82,31 +82,79 @@ def test_injected_violations_are_expected_not_failures():
     pay = t["payments"]
     bad_ids = pay["payment_id"].iloc[:3].tolist()
     pay.loc[pay.index[:3], "amount"] = 10**7
-    truth = [GroundTruthEntry(scenario_id="s1", kind="rule_violation", table="payments", affected_ids=bad_ids)]
+    expected = {("payments", "rule:r3"): set(bad_ids)}
 
-    report = build_report(schema, t, truth)
+    report = build_report(schema, t, expected=expected)
     c = _check(report, "payments", "Rule r3:")
     assert c.status == "PASS" and c.expected_violations == 3 and c.score == 1.0
     assert "3 injected (expected)" in c.detail
     assert report.overall == "PASS"
 
-    # a violation that is NOT in the ground truth still fails
+    # a violation that is NOT declared still fails
     pay.loc[pay.index[10], "amount"] = 10**7
-    c = _check(build_report(schema, t, truth), "payments", "Rule r3:")
+    c = _check(build_report(schema, t, expected=expected), "payments", "Rule r3:")
     assert c.status == "FAIL" and c.expected_violations == 3
 
 
-def test_injected_duplicates_and_nulls_are_expected():
+def test_expected_violation_does_not_excuse_other_defects_on_the_same_row():
+    """An intended rule break must not hide an unrelated null on that row."""
+    schema, t = _finance()
+    pay = t["payments"]
+    pay.loc[pay.index[0], "amount"] = 10**7
+    pay["method"] = pay["method"].astype(object)
+    pay.loc[pay.index[0], "method"] = None  # method is required and was not targeted
+    expected = {("payments", "rule:r3"): {pay["payment_id"].iloc[0]}}
+    report = build_report(schema, t, expected=expected)
+    assert _check(report, "payments", "Rule r3:").status == "PASS"
+    types = _check(report, "payments", "Types & nullability")
+    assert types.status == "FAIL" and types.expected_violations == 0
+    assert report.overall == "FAIL"
+
+
+def test_types_check_is_attributed_per_column():
     schema, t = _finance()
     cust = t["customers"]
-    dup = cust.iloc[[0]].copy()
-    dup["full_name"] = None
-    t["customers"] = pd.concat([cust, dup], ignore_index=True)
-    truth = [GroundTruthEntry(scenario_id="s2", kind="duplicate_record", table="customers", affected_ids=[dup.iloc[0]["customer_id"]])]
-    report = build_report(schema, t, truth)
-    assert _check(report, "customers", "PK uniqueness").expected_violations == 2
-    assert _check(report, "customers", "Types & nullability").expected_violations == 1
-    assert report.overall == "PASS"
+    cid = cust["customer_id"].iloc[0]
+    cust["full_name"] = cust["full_name"].astype(object)
+    cust.loc[cust.index[0], "full_name"] = None
+    ok = build_report(schema, t, expected={("customers", "col:full_name"): {cid}})
+    assert _check(ok, "customers", "Types & nullability").expected_violations == 1
+    assert ok.overall == "PASS"
+    # declaring a different column does not excuse it
+    wrong = build_report(schema, t, expected={("customers", "col:email"): {cid}})
+    assert _check(wrong, "customers", "Types & nullability").status == "FAIL"
+
+
+def test_report_fails_closed_on_missing_structure():
+    schema, t = _finance()
+    empty = build_report(schema, {})
+    assert empty.overall == "FAIL" and all(c.status == "FAIL" for c in empty.checks)
+
+    t["payments"] = t["payments"].drop(columns=["method"])
+    report = build_report(schema, t)
+    assert _check(report, "payments", "Types & nullability").status == "FAIL"
+    assert report.overall == "FAIL"
+
+    schema2, t2 = _finance()
+    t2["invoice_items"] = t2["invoice_items"].drop(columns=["unit_price"])
+    c = _check(build_report(schema2, t2), "invoices", "Rule r1:")
+    assert c.status == "FAIL" and "could not evaluate" in c.detail
+
+
+def test_non_finite_numbers_fail_types():
+    schema, t = _finance()
+    t["invoice_items"]["unit_price"] = t["invoice_items"]["unit_price"].astype(float)
+    t["invoice_items"].loc[t["invoice_items"].index[0], "unit_price"] = float("inf")
+    assert _check(build_report(schema, t), "invoice_items", "Types & nullability").status == "FAIL"
+
+
+def test_non_pk_unique_columns_are_checked():
+    schema, t = _finance()
+    cust = t["customers"]
+    cust["email"] = cust["email"].to_numpy(copy=True)
+    cust.loc[cust.index[1], "email"] = cust.loc[cust.index[0], "email"]
+    c = _check(build_report(schema, t), "customers", "Unique (email)")
+    assert c.status == "FAIL" and "298/300" in c.detail
 
 
 # --- similarity ----------------------------------------------------------------

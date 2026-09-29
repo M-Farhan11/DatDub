@@ -11,8 +11,9 @@ from app.ai.schemas import SchemaDraft
 from app.ai.service import get_ai_service
 from app.ai.validate import draft_to_schema
 from app.core.config import get_settings
-from app.ingest.csv import ingest_csv
-from app.ingest.database import extract_postgres, extract_sqlite, list_tables
+from app.core.exceptions import AppError
+from app.ingest.csv import MAX_FILE_BYTES, MAX_FILES, CsvError, ingest_csv
+from app.ingest.database import MAX_SQLITE_BYTES, extract_postgres, extract_sqlite, list_tables
 from app.schemas import (
     DbTablesRequest,
     DbTablesResponse,
@@ -35,7 +36,9 @@ async def from_prompt(req: PromptSchemaRequest) -> SchemaResponse:
 
 @router.post("/schema/from-csv", response_model=SchemaResponse)
 async def from_csv(files: list[UploadFile] = File(...)) -> SchemaResponse:
-    payload = [(f.filename or "table.csv", await f.read()) for f in files]
+    if len(files) > MAX_FILES:
+        raise CsvError(f"Upload at most {MAX_FILES} CSV files at once.")
+    payload = [(f.filename or "table.csv", await _read_limited(f, MAX_FILE_BYTES, "invalid_csv")) for f in files]
     schema, notes = await ingest_csv(payload)
     return SchemaResponse(schema=schema, notes=notes)
 
@@ -58,7 +61,19 @@ async def from_sqlite(
     tables: str | None = Form(None, description="Comma-separated table names; all tables when empty"),
 ) -> FromDbResponse:
     selected = [t.strip() for t in (tables or "").split(",") if t.strip()]
-    return await extract_sqlite(await file.read(), selected, mode, _limit(sample_limit))
+    content = await _read_limited(file, MAX_SQLITE_BYTES, "invalid_sqlite_file")
+    return await extract_sqlite(content, selected, mode, _limit(sample_limit))
+
+
+async def _read_limited(file: UploadFile, limit: int, code: str) -> bytes:
+    """Read an upload in chunks and stop as soon as it is over `limit` bytes."""
+    chunks, size = [], 0
+    while chunk := await file.read(1024 * 1024):
+        size += len(chunk)
+        if size > limit:
+            raise AppError(f"Each file must be at most {limit // (1024 * 1024)} MB.", code=code, status_code=400)
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _limit(sample_limit: int) -> int:

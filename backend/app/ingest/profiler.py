@@ -8,11 +8,12 @@ only) and the uniqueness ratio. The caller discards the rows afterwards.
 import numpy as np
 import pandas as pd
 
-from app.ingest.heuristics import CATEGORY_MAX_DISTINCT
+from app.ingest.heuristics import CATEGORY_MAX_DISTINCT, bool_label
 from app.schemas.dataset import ColumnProfile, DataType
 
 HISTOGRAM_BINS = 10
-TOP_VALUES = 10
+# top values are only kept below CATEGORY_MAX_DISTINCT distinct values, so the list is always complete
+TOP_VALUES = CATEGORY_MAX_DISTINCT
 MAX_DISTRIBUTION_POINTS = 50
 
 
@@ -30,13 +31,17 @@ def profile_column(raw: pd.Series, data_type: DataType, pii: bool, parsed: pd.Se
     if data_type in ("integer", "float", "decimal"):
         nums = (parsed if parsed is not None else pd.to_numeric(non_null, errors="coerce")).dropna().astype(float)
         if not nums.empty:
-            profile.mean, profile.std = _r(nums.mean()), _r(nums.std(ddof=0))
-            profile.min, profile.max = _r(nums.min()), _r(nums.max())
+            profile.mean, profile.std = _sig(nums.mean()), _sig(nums.std(ddof=0))
+            profile.min, profile.max = float(nums.min()), float(nums.max())  # exact: they are hard bounds
             profile.histogram = _histogram(nums.to_numpy())
     elif data_type in ("date", "datetime"):
         dates = (parsed if parsed is not None else pd.to_datetime(non_null, errors="coerce", format="mixed")).dropna()
         if not dates.empty:
             profile.min, profile.max = dates.min().strftime("%Y-%m-%d"), dates.max().strftime("%Y-%m-%d")
+    elif data_type == "boolean":
+        labels = non_null.map(bool_label).dropna()  # yes/no, t/f, 1/0 -> "true"/"false"
+        if not labels.empty:
+            profile.top_values = [(str(v), _r(f)) for v, f in labels.value_counts(normalize=True).items()]
     elif not pii and non_null.nunique() < CATEGORY_MAX_DISTINCT:
         freq = non_null.astype(str).value_counts(normalize=True).head(TOP_VALUES)
         profile.top_values = [(str(v), _r(f)) for v, f in freq.items()]
@@ -60,9 +65,16 @@ def counts_to_distribution(counts: np.ndarray) -> list[tuple[int, float]]:
 
 
 def _histogram(values: np.ndarray) -> list[tuple[float, float, int]]:
+    # edges stay at full precision: rounding them breaks tiny-valued columns (1e-5 → 0)
     counts, edges = np.histogram(values, bins=HISTOGRAM_BINS)
-    return [(_r(edges[i]), _r(edges[i + 1]), int(counts[i])) for i in range(len(counts))]
+    return [(float(edges[i]), float(edges[i + 1]), int(counts[i])) for i in range(len(counts))]
 
 
 def _r(x: float) -> float:
+    """Frequencies and ratios (0..1)."""
     return round(float(x), 4)
+
+
+def _sig(x: float) -> float:
+    """Summary statistics: 6 significant digits, whatever the scale."""
+    return float(f"{float(x):.6g}")

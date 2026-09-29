@@ -14,7 +14,7 @@ synthetic data studio** (see `idea.md`).
 |---|---|
 | MVP locked + work split | DONE |
 | H0 contract freeze (F0) + frontend scaffold (H0) | F0 DONE · H0 TODO |
-| Checkpoint 1: template → generate → preview → report | TODO |
+| Checkpoint 1: template → generate → preview → report | backend ready · waiting for H0–H4 |
 | Checkpoint 2: DB connect, scenarios, PDF, ZIP | TODO |
 | Deployed demo (Vercel + Railway + Supabase) | TODO |
 | Freeze + rehearsal | TODO |
@@ -53,9 +53,24 @@ synthetic data studio** (see `idea.md`).
   one row-level check per rule, injected rows (ground truth) counted as expected,
   similarity vs sample profile (category 1−TVD, histogram overlap). 100k customers
   report ≈ 1 s. QA doc: `Manual Testing/backendtest3.md`.
+- **DONE (review fixes):** GPT pre-F7 audit: all 12 findings confirmed and fixed with
+  regression tests (`tests/test_hardening.py`): fail-closed report, non-PK uniqueness
+  (generate + check + DB constraints), shared semantic validation before `/generate`
+  (`validation/schema_check.py`), date-rule dependency order, numeric precision,
+  booleans, complete category lists, AI privacy filter (short labels only), CSV off the
+  event loop, streamed upload caps, total-cells / concurrency / store-memory limits,
+  live AI tests opt-in.
+- **DONE (F7):** scenario injection for all 5 kinds (`engine/scenarios.py`), ground truth,
+  per-check expected-violation attribution incl. cross-table effects. QA doc:
+  `Manual Testing/backendtest4.md`.
+- **DONE (F8, code part):** `scripts/seed_demo_db.sql`; DB rule inference with aggregate
+  queries (`ingest/db_rules.py`); SQLite path verified.
+- **DONE (F8, Supabase):** project `htdooohjsznvtgzxwkuv` seeded via the Supabase MCP;
+  `demo_reader` read-only role (no password yet), RLS + Data API lockdown.
+- **DONE (F8 verified):** `/api/schema/from-db` against the Supabase session pooler as
+  `demo_reader`: read-only, 10 rules detected, generation PASS, similarity 96%.
 - **IN PROGRESS:** —
-- **NEXT:** F7 scenario injection + ground truth (then pass it to `build_report`),
-  F8 Supabase demo DB
+- **NEXT:** F9 deploy (Railway, 1 worker), then backlog enhancements.
 
 ## Haider (frontend + documents/export)
 
@@ -80,6 +95,8 @@ synthetic data studio** (see `idea.md`).
   `GROQ_MODEL=openai/gpt-oss-120b`); a provider without key + model is skipped (→ mock).
 
 ## Decisions log
+
+- 2026-09-29: F7: expected violations are declared per (table, check, row), not per row: an injected row only excuses the checks its scenario breaks. `null_burst` may target required columns (reported as expected nullability failures), deviating from the review's "nullable only" suggestion because a missing required value is the more useful test. `/generate` rejects (422) instead of silently adjusting: rows for child tables, rows < 1, negative seeds, unknown locales. DB rules come from whole-table aggregate queries in sample mode only; schema-only mode reads no rows.
 
 - 2026-09-29: F6: expected violations are matched by table + PK (ground truth `affected_ids`); rule-computed columns stay in similarity (honest score; they can be low on tiny samples).
 

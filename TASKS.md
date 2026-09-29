@@ -239,20 +239,63 @@ shows up as FAIL in a unit test.
 ### ✅ CHECKPOINT 1 (3:30–4:00) with Haider: template → generate → preview → report on the real backend
 
 ### F7 · Scenario Studio backend (4:00–5:00)
-- [ ] Catalogue: `null_burst`, `extreme_value`, `duplicate_record`,
+- [x] Catalogue: `null_burst`, `extreme_value`, `duplicate_record`,
       `boundary_date`, `rule_violation`
 - [x] `POST /api/scenarios/propose {schema, instruction}` → AI proposals,
       validated against the schema (invalid ones dropped)
-- [ ] Injection after generation + `GroundTruthEntry` per scenario
+- [x] Injection after generation + `GroundTruthEntry` per scenario
       (`scenario`, `table`, `affected_ids`, `description`, `expected_behavior`)
 
 **Accept:** selecting 3 scenarios gives exactly those records in ground
 truth, and the report marks them as expected.
 
+> F7 notes: `engine/scenarios.py` `inject(schema, tables, selections, seed)` →
+> `(ground_truth, expected)`. `expected` = (table, check key) → row ids, where the
+> key is `pk`, `fk:<col>`, `unique:<col>`, `col:<col>` or `rule:<id>`; the
+> validator excuses only those (check, row) pairs, so unrelated defects on an
+> injected row still FAIL. Knock-on effects are declared too (changed/duplicated
+> line items → the parent's `sum_of_children`; a changed parent total → its
+> `lte_parent` children). Scenarios use distinct rows; seeded (`[seed, 7]`).
+> `duplicate_record` appends copies with new PKs (unique columns clash on purpose),
+> `boundary_date` = month end / leap day / year start+end / 1900-01-01 / 2099-12-31,
+> `rule_violation` works for all 5 rule kinds. `null_burst` may target any non-key
+> column (required column → expected nullability failure). `/generate` re-validates
+> the selected scenarios against the submitted schema (422 `invalid_schema`).
+> Tests: `tests/test_scenarios.py`.
+>
+> Pre-F7 review fixes (GPT review, all with regression tests in `tests/test_hardening.py`):
+> fail-closed report (missing table/column/unevaluable rule = FAIL, ±inf fails types),
+> non-PK `Unique (<col>)` checks + generator uniqueness for all types (impossible
+> domain → 422), DB UNIQUE constraints preserved (unique FK → 1:1), shared semantic
+> validation `validation/schema_check.py` for `/generate` and AI rules (refs, types,
+> bounds, cycles, seed, locale, root-only `rows`, ≥1 row), date rules in dependency
+> order, full-precision profiles + 6-significant-digit floats, money rounding kept
+> inside bounds, booleans normalised to true/false, complete category lists (20),
+> AI category values only for short labels of category/status/boolean columns,
+> CSV parsing off the event loop, uploads capped while reading, total-cells limit
+> (`MAX_TOTAL_CELLS`), 2 concurrent generations (`MAX_CONCURRENT_GENERATIONS`),
+> store memory budget (`MAX_STORE_CELLS`), live AI tests opt-in (`RUN_LIVE_AI=1`).
+
 ### F8 · Supabase demo source DB (5:00–5:40)
-- [ ] `scripts/seed_demo_db.sql`: finance/e-commerce tables, ~300 rows, a few natural edge cases
-- [ ] Create a Supabase project, run the seed, add a **read-only** role for the demo
-- [ ] Verify `from-db` (both modes) against Supabase and a local Postgres
+- [x] `scripts/seed_demo_db.sql`: finance tables (40 customers, 100 invoices, ~250 items,
+      ~60 payments), deterministic, every rule holds, natural edge cases; read-only role section
+- [x] DB business-rule handoff: in `schema_and_sample` mode rules are checked over whole
+      tables with aggregate queries (`ingest/db_rules.py`, counts only, no rows leave the DB)
+- [x] Supabase project `htdooohjsznvtgzxwkuv` seeded through the Supabase MCP (migrations `demo_finance_seed`,
+      `demo_reader_role_and_rls`): 40/100/250/63 rows, sanity checks 0, `demo_reader` SELECT-only + read-only
+      default + 10 s timeout, RLS on (policy for demo_reader only), anon/authenticated revoked, security advisor clean
+- [x] `demo_reader` password set (owner); login via the session pooler (`aws-0-ap-northeast-2.pooler.supabase.com:5432`) works
+- [ ] Put the pooler URL in the frontend "Use demo database" button (H: get it from Farhan privately, never in git)
+- [x] Verify `from-db` (both modes) against Supabase: login as demo_reader, writes blocked (read-only),
+      db/tables 4 tables, schema_only 200 (0 rows read), schema_and_sample 200 (403 rows, 10 rules incl. sum/lte/dates),
+      generate 1,000 customers → PASS, similarity 96%. (Local Postgres test still optional.)
+      (`tests/test_db_rules.py`); Postgres test ready, needs `TEST_PG_SEED_URL` (scratch DB) to run
+
+> F8 notes: `infer_db_rules` checks allowed_values (drops a sampled category list that the
+> full table contradicts), date_order same-table and through an FK, sum_of_children
+> (money columns; `qty * price` pairs) and lte_parent (money ↔ money); max 60 queries,
+> each in a savepoint so a timeout skips only that check. Schema-only mode reads no rows
+> and infers no rules.
 
 ### F9 · Deploy backend (6:00–6:45)
 - [ ] Railway service from `backend/`, env vars set, CORS includes the Vercel URL
@@ -354,6 +397,8 @@ truth, and the report marks them as expected.
 
 Format: `- [ ] YYYY-MM-DD HH:MM · FROM → TO · what · why`
 
+- [ ] 2026-09-29 · F → H · F7 is live: `POST /api/generate` now injects `scenarios` and returns real `ground_truth`. Duplicated records are extra rows (`row_counts` include them). New 422 cases on `/generate`: `invalid_schema` (bad refs/rules, unknown/child table in `rows`, rows < 1, seed < 0, unknown locale, invalid scenario) and `rows_limit_exceeded` also for the total-cells limit; `503 server_busy` when 2 generations are already running. Please show `error.message` as-is. Contract doc update (error codes) needs your OK.
+- [ ] 2026-09-29 · F → H · Proposal: add `notes: string[]` to `GenerateResponse` (e.g. "invoice_items capped at 100,000 rows"). Additive; needs both to agree before I change `types.ts`.
 - [ ] 2026-09-29 · F → H · `backend/app/api/documents.py` + `export.py` stubs are in place (invoice list is real; PDF/ZIP return `501 not_implemented`). They are yours from now on. Read data only via `app.engine.store.get_dataset()`; rows → JSON via `app.engine.generator.to_records(df)`.
 
 ---
@@ -397,3 +442,6 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 - 2026-09-29 · F · done: F3 ingest (CSV types/PK/FK/profiles/rules, Postgres list + extract with auto-added parents, TABLESAMPLE/random sampling, children-per-parent aggregates, SQLite upload, db_guard SSRF + read-only + error mapping, privacy-filtered AI enrichment) + F4 profiler; Manual QA rule in CLAUDE.md + `Manual Testing/backendtest1.md` with samples; 79 tests green · left: F5 engine, F6 report, F7 injection, F8 Supabase · blockers: none (Postgres path verified only against a local server's auth error; full run needs `TEST_PG_URL`)
 - 2026-09-29 · F · done: F5 generation engine (profile-driven numerics/categories/dates, Faker value pools (Sonnet subagent), children-per-parent from distribution/Poisson, child-table cap keeping min children, rule enforcement incl. range/allowed_values/nested totals, null/outlier rates on unprotected columns, locale, API wired); 118 tests green incl. 5k < 5 s and 100k < 30 s; QA `Manual Testing/backendtest2.md` · left: F6 report, F7 injection, F8 Supabase, F9 deploy; contract request for `GenerateResponse.notes` · blockers: none
 - 2026-09-29 · F · done: F6 validation report (types/nullability, per-rule row checks for all 5 rule kinds, expected violations from ground truth, similarity = category TVD + histogram overlap, dedupe-safe parent lookups); contract doc example updated (no shape change); 127 tests green; QA `Manual Testing/backendtest3.md` · left: F7 injection + ground truth, F8 Supabase, F9 deploy · blockers: none
+- 2026-09-29 · F · done: reviewed the GPT pre-F7 audit (all 12 findings confirmed and fixed with regression tests); F7 scenario injection + ground truth with per-check expected-violation attribution; F8 seed script + DB rule inference via aggregate queries + UNIQUE constraints; 172 tests green (2 Postgres tests skipped: need credentials); QA `Manual Testing/backendtest4.md` · left: F8 Supabase project + run seed + read-only role (human), run `TEST_PG_SEED_URL` test, F9 deploy · blockers: Supabase account access
+- 2026-09-29 · F · done: Supabase MCP added (`.mcp.json`, shared with H); demo DB seeded on Supabase (2 migrations), read-only `demo_reader` role with RLS + Data API lockdown, security advisor clean · left: set demo_reader password, run from-db against Supabase, F9 deploy · blockers: none
+- 2026-09-29 · F · done: Supabase end-to-end verified (read-only login through the pooler, 10 rules found, generation PASS); fixed low-cardinality text columns (city/country/company) ignoring the sample → similarity 64% → 96% · left: F9 deploy, share the demo URL with H privately · blockers: none

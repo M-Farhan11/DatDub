@@ -4,8 +4,9 @@ Shared interface with the documents/export modules (owner H):
 
     get_dataset(dataset_id) -> GeneratedDataset   # raises DatasetNotFound
 
-Datasets expire after DATASET_TTL_MINUTES; at most MAX_DATASETS are kept
-and the oldest is evicted first. IDs are random and unguessable.
+Datasets expire after DATASET_TTL_MINUTES; at most MAX_DATASETS are kept,
+and together they hold at most MAX_STORE_CELLS cells (rows × columns); the
+oldest is evicted first. IDs are random and unguessable.
 """
 
 import secrets
@@ -30,6 +31,10 @@ class GeneratedDataset:
     ground_truth: list[GroundTruthEntry] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
 
+    @property
+    def cells(self) -> int:
+        return sum(df.size for df in self.tables.values())
+
 
 _lock = threading.Lock()
 _datasets: "OrderedDict[str, GeneratedDataset]" = OrderedDict()
@@ -46,13 +51,17 @@ def _evict_expired(now: float) -> None:
 
 
 def save_dataset(dataset: GeneratedDataset) -> str:
-    max_datasets = max(1, get_settings().max_datasets)
+    settings = get_settings()
+    max_datasets = max(1, settings.max_datasets)
     with _lock:
         _evict_expired(time.time())
         _datasets[dataset.dataset_id] = dataset
         _datasets.move_to_end(dataset.dataset_id)
         while len(_datasets) > max_datasets:
             _datasets.popitem(last=False)  # oldest first
+        # the newest dataset always stays, even when it alone is over the budget
+        while len(_datasets) > 1 and sum(d.cells for d in _datasets.values()) > settings.max_store_cells:
+            _datasets.popitem(last=False)
     return dataset.dataset_id
 
 

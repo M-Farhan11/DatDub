@@ -1,17 +1,24 @@
 """Validation report (F6).
 
-Checks per table: PK uniqueness, FK integrity, types + nullability, and one
-check per catalogue rule. Rows listed in the ground truth (injected
-scenarios, F7) that fail a check on their own table count as
-`expected_violations`, not failures. Similarity compares the synthetic data
-with the sample profile (category TVD, numeric histogram overlap).
+Checks per table: table present, PK uniqueness, FK integrity, uniqueness of
+other unique columns, types + nullability, and one check per catalogue rule.
+The report fails closed: a missing table, column or an unevaluable rule is a
+FAIL, never a silent skip.
 
-All checks are vectorized; no AI involved.
+Injected scenarios (F7) declare exactly which checks they are meant to break
+and on which rows (`Expected`: (table, check key) -> row ids). Only those
+failures count as `expected_violations`; any other failure on the same row
+still fails. Check keys: "pk", "fk:<col>", "unique:<col>", "col:<col>"
+(type/nullability of one column), "rule:<rule id>".
+
+Similarity compares the synthetic data with the sample profile (category
+TVD, numeric histogram overlap). All checks are vectorized; no AI involved.
 """
 
 import numpy as np
 import pandas as pd
 
+from app.ingest.heuristics import BOOL_FALSE, BOOL_TRUE, bool_label
 from app.schemas import (
     ColumnSchema,
     DatasetSchema,
@@ -24,69 +31,96 @@ from app.schemas import (
 )
 
 _NUMERIC = ("integer", "float", "decimal")
-_BOOL_VALUES = {"true", "false", "1", "0", "1.0", "0.0"}
 # totals are rounded to cents, so allow a cent of drift
 _MONEY_TOL = 0.01
+
+# (table, check key) -> row ids (primary key values) whose failure is intended
+Expected = dict[tuple[str, str], set[str]]
 
 
 def build_report(
     schema: DatasetSchema,
     tables: dict[str, pd.DataFrame],
     ground_truth: list[GroundTruthEntry] | None = None,
+    expected: Expected | None = None,
 ) -> ValidationReport:
-    expected = _expected_ids(ground_truth or [])
+    """`expected` excuses specific (check, row) failures; `ground_truth` rows are
+    left out of the similarity score."""
+    expected = expected or {}
     checks: list[ValidationCheck] = []
     for t in schema.tables:
         df = tables.get(t.name)
         if df is None:
+            checks.append(_fail("Table present", t.name, "table is missing from the generated data"))
             continue
-        pk = df[t.primary_key] if t.primary_key in df.columns else None
-        exp = expected.get(t.name, set())
+        pk = df[t.primary_key].astype(str) if t.primary_key in df.columns else None
 
-        def add(name: str, ok: pd.Series, unit: str, table: str = t.name) -> None:
-            checks.append(_check(name, table, ok, pk, exp, unit))
+        def add(name: str, key: str, ok: pd.Series, unit: str, table: str = t.name, pk=pk) -> None:
+            checks.append(_check(name, table, ok, _excused(pk, expected, table, key), unit))
 
-        if pk is not None:
-            add("PK uniqueness", ~pk.duplicated(keep=False) & pk.notna(), "unique")
+        if pk is None:
+            checks.append(_fail("PK uniqueness", t.name, f"primary key column '{t.primary_key}' is missing"))
+        else:
+            add("PK uniqueness", "pk", ~df[t.primary_key].duplicated(keep=False) & df[t.primary_key].notna(), "unique")
         for fk in t.foreign_keys:
+            name = f"FK integrity ({fk.column} → {fk.ref_table})"
             parent = tables.get(fk.ref_table)
-            if parent is None or fk.column not in df.columns or fk.ref_column not in parent.columns:
+            if fk.column not in df.columns or parent is None or fk.ref_column not in parent.columns:
+                checks.append(_fail(name, t.name, "foreign key column or parent table/column is missing"))
                 continue
             values = df[fk.column]
             # a null FK is a nullability question, not an integrity one
-            add(f"FK integrity ({fk.column} → {fk.ref_table})", values.isna() | values.isin(parent[fk.ref_column]), "resolve")
-        add("Types & nullability", _types_ok(t, df), "rows valid")
+            add(name, f"fk:{fk.column}", values.isna() | values.isin(parent[fk.ref_column]), "resolve")
+        for col in t.columns:
+            if col.unique and col.name != t.primary_key and col.name in df.columns:
+                s = df[col.name]
+                add(f"Unique ({col.name})", f"unique:{col.name}", s.isna() | ~s.duplicated(keep=False), "unique")
+        checks.append(_types_check(t, df, pk, expected))
 
     for rule in schema.rules:
         df = tables.get(rule.table)
         t = schema.table(rule.table)
+        name = f"Rule {rule.id}: {rule.description or rule.kind}"
         if df is None or t is None:
+            checks.append(_fail(name, rule.table, "the rule's table is missing"))
             continue
         ok = _rule_ok(schema, tables, rule)
         if ok is None:
+            checks.append(_fail(name, rule.table, "could not evaluate: a referenced table or column is missing"))
             continue
-        pk = df[t.primary_key] if t.primary_key in df.columns else None
-        checks.append(_check(f"Rule {rule.id}: {rule.description or rule.kind}", rule.table, ok, pk, expected.get(rule.table, set()), "pass"))
+        pk = df[t.primary_key].astype(str) if t.primary_key in df.columns else None
+        checks.append(_check(name, rule.table, ok, _excused(pk, expected, rule.table, f"rule:{rule.id}"), "pass"))
 
-    overall = "PASS" if all(c.status == "PASS" for c in checks) else "FAIL"
-    return ValidationReport(overall=overall, checks=checks, similarity=similarity(schema, tables, expected))
+    overall = "PASS" if checks and all(c.status == "PASS" for c in checks) else "FAIL"
+    return ValidationReport(overall=overall, checks=checks, similarity=similarity(schema, tables, _injected(ground_truth)))
 
 
-def _expected_ids(ground_truth: list[GroundTruthEntry]) -> dict[str, set[str]]:
+def _injected(ground_truth: list[GroundTruthEntry] | None) -> dict[str, set[str]]:
     out: dict[str, set[str]] = {}
-    for g in ground_truth:
+    for g in ground_truth or []:
         out.setdefault(g.table, set()).update(str(i) for i in g.affected_ids)
     return out
 
 
-def _check(name: str, table: str, ok: pd.Series, pk: pd.Series | None, expected: set[str], unit: str) -> ValidationCheck:
-    ok = ok.fillna(False).astype(bool)
-    total = len(ok)
-    failed = ~ok
-    n_expected = 0
-    if expected and pk is not None and failed.any():
-        n_expected = int((failed & pk.astype(str).isin(expected)).sum())
-    passed = int(ok.sum())
+def _excused(pk: pd.Series | None, expected: Expected, table: str, key: str) -> np.ndarray | None:
+    ids = expected.get((table, key))
+    if not ids or pk is None:
+        return None
+    return pk.isin(ids).to_numpy()
+
+
+def _fail(name: str, table: str, detail: str) -> ValidationCheck:
+    return ValidationCheck(name=name, table=table, status="FAIL", score=0.0, detail=detail)
+
+
+def _check(name: str, table: str, ok: pd.Series, excused: np.ndarray | None, unit: str) -> ValidationCheck:
+    """`excused` marks rows whose failure of this check is intended."""
+    ok_arr = ok.fillna(False).to_numpy(dtype=bool)
+    n_expected = int((~ok_arr & excused).sum()) if excused is not None else 0
+    return _summary(name, table, len(ok_arr), int(ok_arr.sum()), n_expected, unit)
+
+
+def _summary(name: str, table: str, total: int, passed: int, n_expected: int, unit: str) -> ValidationCheck:
     unexpected = total - passed - n_expected
     detail = f"{passed}/{total} {unit}"
     if n_expected:
@@ -104,25 +138,34 @@ def _check(name: str, table: str, ok: pd.Series, pk: pd.Series | None, expected:
 # --- types and nullability ---------------------------------------------------
 
 
-def _types_ok(t: TableSchema, df: pd.DataFrame) -> pd.Series:
-    ok = pd.Series(True, index=df.index)
+def _types_check(t: TableSchema, df: pd.DataFrame, pk: pd.Series | None, expected: Expected) -> ValidationCheck:
+    """One check per table, attributed per column: a row's failure is expected
+    only when every column it fails on was targeted for that row."""
+    name = "Types & nullability"
+    missing = [c.name for c in t.columns if c.name not in df.columns]
+    if missing:
+        return _fail(name, t.name, f"missing column(s): {', '.join(missing[:5])}")
+    ok_all = np.ones(len(df), dtype=bool)
+    unexpected = np.zeros(len(df), dtype=bool)
     for col in t.columns:
-        if col.name not in df.columns:
-            continue
         s = df[col.name]
-        null = s.isna()
+        null = s.isna().to_numpy(dtype=bool)
+        ok = null | _type_matches(col, s).fillna(False).to_numpy(dtype=bool)
         if not col.nullable:
             ok &= ~null
-        ok &= null | _type_matches(col, s)
-    return ok
+        ok_all &= ok
+        excused = _excused(pk, expected, t.name, f"col:{col.name}")
+        unexpected |= ~ok if excused is None else ~ok & ~excused
+    passed = int(ok_all.sum())
+    return _summary(name, t.name, len(df), passed, len(df) - passed - int(unexpected.sum()), "rows valid")
 
 
 def _type_matches(col: ColumnSchema, s: pd.Series) -> pd.Series:
     if col.data_type in _NUMERIC:
-        nums = pd.to_numeric(s, errors="coerce")
-        good = nums.notna()
+        nums = pd.to_numeric(s, errors="coerce").astype(float)
+        good = pd.Series(np.isfinite(nums.to_numpy()), index=s.index)  # NaN and ±inf are not values
         if col.data_type == "integer":
-            good &= np.isclose(nums.fillna(0).astype(float) % 1, 0)
+            good &= np.isclose(nums.fillna(0) % 1, 0)
         return good
     if col.data_type in ("date", "datetime"):
         if pd.api.types.is_datetime64_any_dtype(s):
@@ -131,7 +174,7 @@ def _type_matches(col: ColumnSchema, s: pd.Series) -> pd.Series:
     if col.data_type == "boolean":
         if pd.api.types.is_bool_dtype(s):
             return pd.Series(True, index=s.index)
-        return s.astype(str).str.lower().isin(_BOOL_VALUES)
+        return s.astype(str).str.lower().isin(BOOL_TRUE | BOOL_FALSE)
     return pd.Series(True, index=s.index)
 
 
@@ -270,6 +313,10 @@ def similarity(
             score = None
             if prof.histogram and col.data_type in _NUMERIC:
                 score = _histogram_overlap(prof.histogram, pd.to_numeric(values, errors="coerce").dropna())
+            elif prof.top_values and col.data_type == "boolean":
+                labels = values.map(bool_label).dropna()
+                top = [(bool_label(v) or str(v), f) for v, f in prof.top_values]
+                score = _category_similarity(top, labels) if not labels.empty else None
             elif prof.top_values:
                 score = _category_similarity(prof.top_values, values.astype(str))
             if score is not None:
