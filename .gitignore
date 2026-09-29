@@ -46,3 +46,5 @@ frontend/dist/
 *.db
 *.sqlite
 *.sqlite3
+# sample databases for manual QA are committed on purpose
+!Manual Testing/samples/*.sqlite

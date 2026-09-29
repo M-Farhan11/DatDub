@@ -106,10 +106,48 @@ merge conflicts.
 2. Add one dated line to the **Session Log** in `TASKS.md`: who, what got
    done, what is left, any blocker.
 3. Update `project-state.md` (DONE / IN PROGRESS / NEXT for your person).
-4. Commit and push those doc updates together with the code.
+4. Write the session's manual QA file (see **Manual QA Test Rule** below).
+5. Commit and push those doc updates together with the code.
 
 Only mark a task `[x]` after it has been run and meets its acceptance
 criteria.
+
+## Manual QA Test Rule (every session that ships testable work)
+
+The 3rd team member does manual QA from both ends. At the end of every
+session that adds or changes something testable, write **one new** test
+file in `Manual Testing/` (never rewrite an old one; a later file may say
+"re-run steps X–Y of backendtest2.md"):
+
+- Farhan's sessions → `Manual Testing/backendtest<N>.md` (backend/API testing)
+- Haider's sessions → `Manual Testing/frontendtest<N>.md` (UI testing)
+- `<N>` = the next free number for that prefix (1, 2, 3, …). Each person
+  only creates files with their own prefix.
+
+Write it for a non-developer who may paste the file into any AI assistant
+and ask "explain this and help me run it". So each file must be
+self-contained and plain:
+
+1. **Header:** date, author (F/H), branch/commit, and what this session built (2–4 lines).
+2. **Setup:** test 1 of each prefix (`backendtest1.md`, `frontendtest1.md`)
+   covers the full setup from zero: installing Python/Node, creating the
+   venv, `pip install -r requirements.txt` / `npm install`, copying
+   `.env.example` → `.env`, starting the server(s), and how to check they
+   are up. Later files only link back to it and list anything new
+   (new env vars, new dependencies, new seed data).
+3. **Tests:** numbered. Each has: *Purpose* (one sentence) · *Steps*
+   (exact commands, URLs, clicks, or copy-paste request bodies; Windows
+   PowerShell first, plus the `/docs` Swagger UI route for API calls) ·
+   *Expected result* (concrete: status code, fields, visible text) ·
+   `Result: [ ] PASS [ ] FAIL  Notes: ____`.
+4. **Negative tests:** at least one bad input per feature (wrong file,
+   bad credentials, missing field) and its expected clean error.
+5. **Known limitations:** what is intentionally not built yet, so QA does
+   not report it as a bug.
+
+Keep explanations short. Prefer exact, copyable inputs over prose. Never
+put real secrets (API keys, DB passwords) in these files; use placeholders.
+Commit the test file with the session's code and doc updates.
 
 ## Agent Orchestration Rule
 

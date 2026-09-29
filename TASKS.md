@@ -42,6 +42,8 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done (run + verified) ·
 | `backend/tests/**` except the two Haider files below | F |
 | `scripts/seed_demo_db.sql` | F |
 | `docs/api-contract.md`, `frontend/src/api/types.ts` | F (changes need both to agree) |
+| `Manual Testing/backendtest*.md` (+ backend samples in `Manual Testing/samples/`) | F |
+| `Manual Testing/frontendtest*.md` | **H** |
 | `backend/app/documents/**` (invoice PDF) | **H** |
 | `backend/app/export/**` (ZIP export) | **H** |
 | `backend/app/api/documents.py`, `backend/app/api/export.py` | **H** |
@@ -146,26 +148,26 @@ object; invalid JSON triggers retry/fallback (tested with a fake provider).
 **Accept:** both templates load and pass contract validation, with no AI involved.
 
 ### F3 · Ingest / schema inference (1:50–2:40)
-- [ ] CSV (1..n files): pandas dtype + regex heuristics (email, phone, date,
+- [x] CSV (1..n files): pandas dtype + regex heuristics (email, phone, date,
       id, currency) + PK guess + FK guess across files (`<table>_id` naming)
       + AI semantic enrichment on **metadata only**
 - [x] Prompt → schema via AI; validate (unique names, FK targets exist, rules reference real columns)
-- [ ] DB step A: `POST /api/db/tables`: accepts a URL **or** host/port/db/user/password;
+- [x] DB step A: `POST /api/db/tables`: accepts a URL **or** host/port/db/user/password;
       returns tables + column counts + `estimated_rows` (`pg_class.reltuples`) + FK references. **No rows read.**
-- [ ] DB steps B+C: `POST /api/schema/from-db {connection, tables, mode, sample_limit}`
+- [x] DB steps B+C: `POST /api/schema/from-db {connection, tables, mode, sample_limit}`
       via SQLAlchemy `inspect()`:
   - FK parent tables auto-added (returned in `auto_added`)
   - `sample_limit` default 200, max 1000
   - `TABLESAMPLE SYSTEM` for big tables, `ORDER BY random() LIMIT` for small ones
   - profile the sample, then discard the rows
-- [ ] `POST /api/schema/from-sqlite` (upload; same modes; temp file deleted after the request)
-- [ ] DB safety (`ingest/db_guard.py`):
+- [x] `POST /api/schema/from-sqlite` (upload; same modes; temp file deleted after the request)
+- [x] DB safety (`ingest/db_guard.py`):
   - Postgres-only scheme
   - SSRF guard: resolve the host, reject loopback/private/link-local/metadata IPs unless `ALLOW_PRIVATE_DB_HOSTS=true`
   - `connect_timeout=5`, `SET TRANSACTION READ ONLY`, `statement_timeout=10s`
   - credentials redacted from every error/log and never stored
   - error codes: `db_unreachable`, `db_auth_failed`, `db_host_not_allowed`, `db_timeout`, `db_unsupported_dialect`
-- [ ] AI payload builder: names, types, constraints and aggregates only; category
+- [x] AI payload builder: names, types, constraints and aggregates only; category
       values only for columns with < 20 distinct values that are not PII.
       Unit test: no sample value from a PII column appears in the AI request.
 
@@ -174,8 +176,16 @@ attached when sample rows exist; bad URL/file → a clean 4xx with a message;
 `127.0.0.1` / `169.254.169.254` are rejected when `ALLOW_PRIVATE_DB_HOSTS=false`;
 a password never appears in a response or log (tested).
 
+> F3 notes: code in `app/ingest/` (`heuristics`, `profiler`, `build` = shared
+> finalize step, `csv`, `database`, `db_guard`, `enrich` = AI payload + merge,
+> `rules` = CSV rule inference: allowed_values, date_order, sum_of_children,
+> lte_parent). Verified: CSV, SQLite (both modes), guard + error mapping
+> (incl. a real local Postgres auth failure). `tests/test_ingest.py::test_postgres_end_to_end`
+> runs only with `TEST_PG_URL` set; passed against local Postgres 18 (`dat_dub`), not yet against Supabase (F8).
+> Row-count hints are capped at 1000 (the user raises counts in Configure).
+
 ### F4 · Profiler (inside F3 time)
-- [ ] Per column: null %, min/max/mean/std, 10-bin histogram, top category
+- [x] Per column: null %, min/max/mean/std, 10-bin histogram, top category
       frequencies, uniqueness ratio. Per FK: children-per-parent distribution.
 
 ### F5 · Generation engine (2:40–3:30) — the heart of the product
@@ -328,6 +338,11 @@ Format: `- [ ] YYYY-MM-DD HH:MM · FROM → TO · what · why`
 
 ---
 
+- [ ] 2026-09-29 · F → H · FYI (additive, no shape change): F3 added error codes `invalid_csv` (400) and `invalid_sqlite_file` (400); `from-sqlite` with unknown tables returns `404 table_not_found`; bad `mode` → 422. DB errors are 400 (`db_unsupported_dialect` 422). Please show `error.message` as-is in the UI. OK to add these codes to the list in `docs/api-contract.md`?
+- [ ] 2026-09-29 · F → H · New rule in `CLAUDE.md` (Manual QA Test Rule): at the end of each session write `Manual Testing/frontendtest<N>.md` for our QA member. `frontendtest1.md` must include full setup (Node, `npm install`, `.env`, `npm run dev`, backend start: see `Manual Testing/backendtest1.md` Part A).
+
+---
+
 ## 8. Enhancements backlog (ONLY after all MUST-HAVE tasks are `[x]`)
 
 Priority order. Claim one by writing your initial next to it.
@@ -358,3 +373,4 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 - 2026-09-29 · F · done: F0 (contract models, API contract v1.0 frozen, types.ts, in-memory store with TTL/max, all routers + stubs, CORS + `/api` prefix + error envelope, deps, .env.example, 18 tests green) + F2 templates (finance, ecommerce) + first-cut generator/validator · left: F1 AI layer, F3–F7 · blockers: none
 - 2026-09-29 · F · done: F1 AI layer (AIService.generate_structured with validate → retry-with-feedback → fallback → AIProviderError; Gemini (google-genai JSON schema), Groq (httpx JSON mode), schema-aware Mock; prompts; validate.py converters), wired `/schema/from-prompt` + `/scenarios/propose` to AI; 33 tests green + 2 live tests (skipped, no key) · left: live Gemini/Groq check with real keys, F3 CSV/DB ingest, F5–F7 · blockers: no API keys in .env yet
 - 2026-09-29 · F · done: F1 verified live (Gemini `gemini-2.5-flash` + Groq `openai/gpt-oss-120b` both pass `tests/test_ai_live.py`; real from-prompt returns a valid 6-table schema); fixed: provider names case-insensitive, unit tests forced to mock via `tests/conftest.py` · left: F3 ingest, F5–F7 · blockers: none (Gemini sometimes returns 503 "high demand"; Groq fallback covers it, so keep `AI_FALLBACK_PROVIDER=groq`; Groq free tier = 8k tokens/min ≈ 2 calls/min)
+- 2026-09-29 · F · done: F3 ingest (CSV types/PK/FK/profiles/rules, Postgres list + extract with auto-added parents, TABLESAMPLE/random sampling, children-per-parent aggregates, SQLite upload, db_guard SSRF + read-only + error mapping, privacy-filtered AI enrichment) + F4 profiler; Manual QA rule in CLAUDE.md + `Manual Testing/backendtest1.md` with samples; 79 tests green · left: F5 engine, F6 report, F7 injection, F8 Supabase · blockers: none (Postgres path verified only against a local server's auth error; full run needs `TEST_PG_URL`)

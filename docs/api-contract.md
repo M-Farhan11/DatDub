@@ -10,9 +10,9 @@ lands; the frontend can integrate against them now.
 | Endpoint | Status |
 |---|---|
 | `GET /api/health`, `/api/templates`, `/api/templates/{id}` | real |
-| `POST /api/schema/from-prompt`, `from-csv` | stub → F1/F3 |
-| `POST /api/db/tables`, `/api/schema/from-db`, `from-sqlite` | stub (finance fixture) → F3 |
-| `POST /api/scenarios/propose` | stub (deterministic) → F7 |
+| `POST /api/schema/from-prompt`, `from-csv` | real (F1 / F3) |
+| `POST /api/db/tables`, `/api/schema/from-db`, `from-sqlite` | real (F3) |
+| `POST /api/scenarios/propose` | real (F1, AI or mock) |
 | `POST /api/generate` | real (first-cut engine; scenarios ignored until F7) |
 | `GET /api/datasets/{id}/tables/{t}` | real |
 | `GET .../documents/invoices` | real list; PDF returns `501 not_implemented` → H6 |
