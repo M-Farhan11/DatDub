@@ -70,7 +70,7 @@ actually selected.
 uvicorn app.main:app --reload
 ```
 
-Then visit `http://127.0.0.1:8000/health` — it should return
+Then visit `http://127.0.0.1:8000/api/health` — it should return
 `{"status": "ok"}`. Interactive docs are at `http://127.0.0.1:8000/docs`.
 
 ### 6. Run tests
