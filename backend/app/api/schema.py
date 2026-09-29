@@ -1,10 +1,15 @@
 """Schema inference: prompt, CSV, Postgres, SQLite.
 
-F0 STUBS: responses are contract-valid fixtures so the frontend can
-integrate. F3 replaces them with real inference.
+from-prompt is real (AI → SchemaDraft → validated DatasetSchema).
+CSV / DB / SQLite are still F0 stubs (contract-valid fixtures); F3 replaces them.
 """
 
 from fastapi import APIRouter, File, Form, UploadFile
+
+from app.ai.prompts import schema_draft_prompt
+from app.ai.schemas import SchemaDraft
+from app.ai.service import get_ai_service
+from app.ai.validate import draft_to_schema
 
 from app.schemas import (
     DbTableInfo,
@@ -23,9 +28,10 @@ _STUB_NOTE = "Stub response (F0): real inference lands in F3."
 
 
 @router.post("/schema/from-prompt", response_model=SchemaResponse)
-def from_prompt(req: PromptSchemaRequest) -> SchemaResponse:
-    schema = get_template("ecommerce").model_copy(update={"name": "prompt_schema", "source": "prompt"})
-    return SchemaResponse(schema=schema, notes=[_STUB_NOTE])
+async def from_prompt(req: PromptSchemaRequest) -> SchemaResponse:
+    draft = await get_ai_service().generate_structured(schema_draft_prompt(req.prompt), SchemaDraft)
+    schema, notes = draft_to_schema(draft, source="prompt")
+    return SchemaResponse(schema=schema, notes=notes)
 
 
 @router.post("/schema/from-csv", response_model=SchemaResponse)

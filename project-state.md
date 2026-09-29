@@ -30,9 +30,13 @@ synthetic data studio** (see `idea.md`).
   table paging, invoice list; stubs: schema inference, db, scenarios),
   CORS + `/api` prefix + `{"error":{code,message}}` envelope, deps pinned.
   **F2:** finance + ecommerce templates. First-cut generator + PK/FK validator.
-- **IN PROGRESS:** —
-- **NEXT:** F1 AI layer (Gemini/Groq/Mock structured output), then F3 ingest,
-  F5 engine hardening (child-table caps, Faker pools, null/outlier), F6 rules
+- **DONE (F1):** AI layer: `AIService.generate_structured` (Pydantic validation,
+  one retry with error feedback, fallback provider, `AIProviderError`), Gemini /
+  Groq / schema-aware Mock providers, prompts, `ai/validate.py` (drops invalid
+  AI references). `/schema/from-prompt` and `/scenarios/propose` now go through AI.
+- **IN PROGRESS:** live Gemini/Groq check (needs keys in `backend/.env`)
+- **NEXT:** F3 ingest (CSV + DB + SQLite, payload builder, enrichment),
+  F5 engine hardening (child-table caps, Faker pools, null/outlier), F6 rules, F7 injection
 
 ## Haider (frontend + documents/export)
 
@@ -54,6 +58,8 @@ synthetic data studio** (see `idea.md`).
 ## Decisions log
 
 - 2026-09-29: Contract v1.0: generated PKs are strings (`INV-00001`); dates are `YYYY-MM-DD` strings; `date_order.via_fk` means `before` lives in the FK parent; `ForeignKey.children_distribution` added for the profiler.
+
+- 2026-09-29: F1: AI output models are flat (`SchemaDraft`, `SemanticEnrichment`, `ScenarioPlan` in `app/ai/schemas.py`) and converted to contract models in code; Groq uses JSON mode + schema in the prompt (works on every Groq model).
 
 - 2026-09-29: No platform DB; in-memory dataset store. Supabase is used only as
   the demo *source* DB (reachable from Railway, unlike a local DB).
