@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface BottomBarProps {
   onBack?: () => void
@@ -9,12 +10,19 @@ interface BottomBarProps {
   summary?: ReactNode
   /** Primary action(s) on the right. */
   children?: ReactNode
+  /** Sticky over scrolling content (default). Use false inside fixed-height layouts. */
+  sticky?: boolean
 }
 
 /** Sticky action bar at the bottom of a step. */
-export function BottomBar({ onBack, backLabel = "Back", summary, children }: BottomBarProps) {
+export function BottomBar({ onBack, backLabel = "Back", summary, children, sticky = true }: BottomBarProps) {
   return (
-    <div className="sticky bottom-0 z-30 mt-auto border-t border-line bg-card/95 backdrop-blur">
+    <div
+      className={cn(
+        "mt-auto shrink-0 border-t border-line bg-card",
+        sticky && "sticky bottom-0 z-30 bg-card/95 backdrop-blur",
+      )}
+    >
       <div className="flex h-16 items-center gap-4 px-4 md:px-gutter-lg">
         {onBack ? (
           <Button variant="ghost" onClick={onBack}>

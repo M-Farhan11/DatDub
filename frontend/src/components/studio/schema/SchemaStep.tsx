@@ -1,5 +1,5 @@
-import { useCallback } from "react"
-import { ArrowRight, Network } from "lucide-react"
+import { useCallback, useState } from "react"
+import { ArrowRight, Network, PanelRightClose, PanelRightOpen } from "lucide-react"
 import { BottomBar } from "@/components/shared/BottomBar"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,8 @@ export function SchemaStep() {
   const { state, dispatch } = useStudio()
   const { schema, selectedColumn } = state
   const onSelect = useCallback((ref: ColumnRef) => dispatch({ type: "selectColumn", ref }), [dispatch])
+  // The side panel starts open on wide screens; on narrower ones the graph gets the full width.
+  const [rulesOpen, setRulesOpen] = useState(() => window.matchMedia("(min-width: 1280px)").matches)
 
   if (!schema) {
     return (
@@ -33,10 +35,13 @@ export function SchemaStep() {
   const linkCount = schema.tables.reduce((n, t) => n + t.foreign_keys.length, 0)
   const selectedTable = selectedColumn ? schema.tables.find((t) => t.name === selectedColumn.table) : undefined
   const column = selectedTable?.columns.find((c) => c.name === selectedColumn?.column)
+  const panelOpen = rulesOpen || Boolean(column)
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col">
-      <div className="space-y-3 px-4 pt-6 pb-4 md:px-gutter-lg">
+    // Fixed to the viewport so the graph fills the space between header and bottom bar.
+    // min-h keeps it usable when the window is very short or zoomed in (the page scrolls then).
+    <div className="flex h-[calc(100dvh-4rem)] min-h-[560px] flex-col">
+      <div className="shrink-0 space-y-3 px-4 pt-6 pb-4 md:px-gutter-lg">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="font-heading text-headline-xl font-medium tracking-tight text-ink">Review the schema</h1>
@@ -45,17 +50,35 @@ export function SchemaStep() {
               {state.rowsSampled ? ` · profiled from ${formatInt(state.rowsSampled)} sample rows` : ""}
             </p>
           </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="border border-line"
+            aria-expanded={panelOpen}
+            aria-controls="schema-side-panel"
+            onClick={() => {
+              if (panelOpen) {
+                setRulesOpen(false)
+                dispatch({ type: "selectColumn", ref: null })
+              } else setRulesOpen(true)
+            }}
+          >
+            {panelOpen ? <PanelRightClose aria-hidden="true" /> : <PanelRightOpen aria-hidden="true" />}
+            {panelOpen ? "Hide panel" : `Rules (${schema.rules.length})`}
+          </Button>
         </div>
         <NoteBar notes={state.notes} autoAdded={state.autoAdded} />
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4 px-4 pb-4 md:px-gutter-lg">
-        <div className="relative min-h-[420px] min-w-0 flex-1 overflow-hidden rounded-xl border border-line bg-canvas">
+        <div className="relative min-h-[260px] min-w-0 flex-1 overflow-hidden rounded-xl border border-line bg-canvas">
           <SchemaGraph schema={schema} selected={selectedColumn} onSelect={onSelect} />
         </div>
+        {panelOpen && (
         <aside
+          id="schema-side-panel"
           aria-label={column ? "Column details" : "Business rules"}
-          className="w-[340px] shrink-0 overflow-hidden rounded-xl border border-line bg-card shadow-sm"
+          className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-card shadow-sm xl:w-[340px]"
         >
           {selectedTable && column ? (
             <ColumnDetails
@@ -71,9 +94,11 @@ export function SchemaStep() {
             <RulesPanel rules={schema.rules} />
           )}
         </aside>
+        )}
       </div>
 
       <BottomBar
+        sticky={false}
         onBack={() => dispatch({ type: "openSource", screen: "picker" })}
         backLabel="Change source"
         summary="Changes here apply to the next generation."

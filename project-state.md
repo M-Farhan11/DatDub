@@ -90,7 +90,10 @@ synthetic data studio** (see `idea.md`).
   H1 source screens (prompt, CSV, 3-step DB flow, templates), H2 schema graph +
   column details, H3 configure, H4 results, H5 edge cases + answer key, H6 invoice
   viewer and H7 export screen (both now use the real backend).
-- **NEXT:** browser QA (`Manual Testing/frontendtest1–3.md`), commit + push, H8 deploy.
+- **DONE (UI pass, 2026-09-30):** landing page rebuilt with the new logo (theme blue) and
+  the headline "Test environments, not just fake data."; source picker redesigned; schema,
+  results and export layout fixes; sidebar workspaces navigate; app-wide font-size fix.
+- **NEXT:** browser QA (`Manual Testing/frontendtest1–3.md`), H8 deploy.
 
 ## BLOCKED
 

@@ -1,46 +1,15 @@
-import { useState } from "react"
 import { Lock } from "lucide-react"
-import { errorMessage, schemaFromPrompt } from "@/api/client"
 import { Card } from "@/components/shared/Card"
 import { ErrorCallout } from "@/components/shared/ErrorCallout"
 import { SubmitButton } from "@/components/shared/SubmitButton"
 import { inputClass } from "@/lib/styles"
 import { cn } from "@/lib/utils"
-import { useStudio } from "@/state/useStudio"
+import { MIN_PROMPT_LENGTH, PROMPT_EXAMPLES } from "./promptExamples"
 import { SourceLayout } from "./SourceLayout"
-
-const EXAMPLES = [
-  {
-    label: "Online store",
-    text: "An online store with customers, orders, order items and payments. Orders can have several items and one payment. Order totals equal the sum of their items.",
-  },
-  {
-    label: "Clinic appointments",
-    text: "A clinic with patients, doctors, appointments and invoices. Each appointment belongs to one patient and one doctor. Invoices are issued after the appointment date.",
-  },
-  {
-    label: "SaaS subscriptions",
-    text: "A SaaS product with accounts, users, subscriptions and monthly invoices. Each account has several users and one active subscription. Invoice amounts follow the subscription plan.",
-  },
-]
+import { usePromptDraft } from "./usePromptDraft"
 
 export function PromptSource() {
-  const { dispatch } = useStudio()
-  const [prompt, setPrompt] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const submit = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await schemaFromPrompt(prompt.trim())
-      dispatch({ type: "schemaLoaded", schema: res.schema, kind: "prompt", notes: res.notes })
-    } catch (err) {
-      setError(errorMessage(err))
-      setLoading(false)
-    }
-  }
+  const { prompt, setPrompt, loading, error, submit } = usePromptDraft()
 
   return (
     <SourceLayout
@@ -64,7 +33,7 @@ export function PromptSource() {
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="text-body-sm text-ink-muted">Examples:</span>
-          {EXAMPLES.map((example) => (
+          {PROMPT_EXAMPLES.map((example) => (
             <button
               key={example.label}
               type="button"
@@ -85,8 +54,8 @@ export function PromptSource() {
           <SubmitButton
             loading={loading}
             loadingLabel="Drafting the schema…"
-            disabled={prompt.trim().length < 10}
-            title={prompt.trim().length < 10 ? "Write at least a sentence first" : undefined}
+            disabled={prompt.trim().length < MIN_PROMPT_LENGTH}
+            title={prompt.trim().length < MIN_PROMPT_LENGTH ? "Write at least a sentence first" : undefined}
             onClick={submit}
           >
             Draft schema

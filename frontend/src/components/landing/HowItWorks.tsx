@@ -1,43 +1,51 @@
-const STEPS = [
+import { FlaskConical, Network, PackageCheck, Upload, type LucideIcon } from "lucide-react"
+import { SectionHeading } from "./SectionHeading"
+
+const STEPS: { icon: LucideIcon; title: string; body: string }[] = [
   {
+    icon: Upload,
     title: "Bring your structure",
-    body: "Describe it, upload CSVs, connect Postgres or pick a template.",
+    body: "Describe your system, upload CSV files, connect Postgres or pick a template.",
   },
   {
-    title: "Review and add edge cases",
-    body: "Check the schema graph, then choose the tricky cases to include.",
+    icon: Network,
+    title: "Review the schema",
+    body: "See every table and link on a graph. Correct types and personal-data flags.",
   },
   {
-    title: "Generate, verify, export",
-    body: "Every key and rule is checked. Download CSV, JSON or a ZIP.",
+    icon: FlaskConical,
+    title: "Add edge cases",
+    body: "Pick the tricky records to include: overpayments, duplicates, missing values.",
+  },
+  {
+    icon: PackageCheck,
+    title: "Generate, check, export",
+    body: "Get a validation report, invoice PDFs and your data as CSV, JSON or a ZIP.",
   },
 ]
 
 export function HowItWorks() {
   return (
-    <section
-      id="how-it-works"
-      aria-labelledby="how-it-works-title"
-      className="w-full scroll-mt-16 bg-surface-low py-16 md:py-24"
-    >
-      <div className="mx-auto max-w-5xl px-margin md:px-margin-lg">
-        <h2
+    <section id="how-it-works" aria-labelledby="how-it-works-title" className="w-full scroll-mt-16 py-14 md:py-16">
+      <div className="mx-auto max-w-[1100px] px-margin md:px-margin-lg">
+        <SectionHeading
           id="how-it-works-title"
-          className="text-center font-heading text-headline-lg font-medium text-ink md:text-headline-xl"
-        >
-          From idea to test database in three steps
-        </h2>
-        <ol className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
-          {STEPS.map((step, i) => (
-            <li key={step.title} className="flex flex-col items-start rounded-xl bg-card p-6 shadow-sm">
-              <span
-                className="tabular flex size-9 items-center justify-center rounded-full bg-primary-tint font-heading text-label-md font-medium text-primary-deep"
-                aria-hidden="true"
-              >
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <h3 className="mt-4 mb-2 font-heading text-headline-sm font-medium text-ink">{step.title}</h3>
-              <p className="text-body-md text-ink-muted">{step.body}</p>
+          title="From idea to test database in four steps"
+          subtitle="You review everything before a single row is generated."
+        />
+        <ol className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {STEPS.map(({ icon: Icon, title, body }, i) => (
+            <li key={title} className="relative flex flex-col rounded-xl border border-line bg-card p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="flex size-10 items-center justify-center rounded-lg bg-primary-tint text-primary-deep">
+                  <Icon className="size-5" aria-hidden="true" />
+                </span>
+                <span className="tabular font-mono text-code-md text-hint" aria-hidden="true">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+              </div>
+              <h3 className="mt-5 font-heading text-headline-sm font-medium text-ink">{title}</h3>
+              <p className="mt-2 text-body-md text-ink-muted">{body}</p>
             </li>
           ))}
         </ol>

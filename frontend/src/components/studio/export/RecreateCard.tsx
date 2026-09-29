@@ -38,10 +38,10 @@ export function RecreateCard({ schemaName, config, scenarios }: RecreateCardProp
       description="Use the same schema with these settings to get identical data."
       actions={<CopyButton text={JSON.stringify(recipe, null, 2)} />}
     >
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+      <dl className="grid grid-cols-1 items-baseline gap-x-6 gap-y-3 sm:grid-cols-[140px_minmax(0,1fr)]">
         {items.map(([label, value]) => (
           <div key={label} className="contents">
-            <dt className="text-body-sm text-ink-muted">{label}</dt>
+            <dt className="text-body-md text-ink-muted">{label}</dt>
             <dd>
               <MonoText className="text-ink">{value}</MonoText>
             </dd>
