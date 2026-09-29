@@ -189,23 +189,33 @@ a password never appears in a response or log (tested).
       frequencies, uniqueness ratio. Per FK: children-per-parent distribution.
 
 ### F5 · Generation engine (2:40–3:30) — the heart of the product
-- [ ] Topological order over FKs; parents first
-- [ ] Column generators by semantic type, **vectorized**:
+- [x] Topological order over FKs; parents first
+- [x] Column generators by semantic type, **vectorized**:
   - NumPy for numerics/dates/categoricals (from profile or rule ranges, profile weights / `allowed_values`)
   - **value pools** for text PII: seeded Faker pre-generates ~5k names/streets/companies, then vectorized random picks. No per-row Faker calls.
   - emails = name + sequence, so they are unique
   - child FK columns sample parent PKs that were already generated
-- [ ] Child counts per parent from the profile distribution or a default Poisson
-- [ ] Rules enforced: derived totals computed from children, dates ordered, `lte_parent` capped
-- [ ] Null rate + outlier rate (nullable / numeric columns only)
-- [ ] Seed → fully reproducible; `MAX_ROWS_PER_TABLE` cap (default 100k,
+- [x] Child counts per parent from the profile distribution or a default Poisson
+- [x] Rules enforced: derived totals computed from children, dates ordered, `lte_parent` capped
+- [x] Null rate + outlier rate (nullable / numeric columns only)
+- [x] Seed → fully reproducible; `MAX_ROWS_PER_TABLE` cap (default 100k,
       hard ceiling 500k) → `422 rows_limit_exceeded` above it
-- [ ] `POST /api/generate` saves to the store and returns previews (50 rows/table) + report
-- [ ] `GET /api/datasets/{id}/tables/{t}?offset&limit`
+- [x] `POST /api/generate` saves to the store and returns previews (50 rows/table) + report
+- [x] `GET /api/datasets/{id}/tables/{t}?offset&limit`
 
 **Accept:** finance template with 5,000 customers generates in under 5 s and
 100,000 customers in under 30 s; the same seed gives identical output; FK
 integrity is 100%. AI is called 0 times during generation (plans only).
+
+> F5 notes: `engine/generator.py` + `engine/pools.py` (Faker pools, fixed pool
+> seed, request `rng` does the picks). Child tables over the cap are scaled
+> down keeping `min_children` per parent while the budget allows; the message
+> goes to `generate(..., notes=[])` but is not in the API response yet (see
+> Requests). Noise (nulls/outliers) never touches PKs, FKs, unique columns or
+> any column a rule reads/writes: `generator.protected_columns(schema)`; F6/F7
+> can reuse it. Rule order: range/allowed → date_order (parents first, via_fk
+> before same-table) → sum_of_children (deepest first) → lte_parent.
+> Tests: `tests/test_engine.py` (incl. both speed targets), `tests/test_pools.py`.
 
 ### F6 · Validation report (inside Core / by Checkpoint 1)
 - [ ] PK uniqueness, FK integrity, type/nullability, per-rule pass/fail counts
@@ -340,6 +350,7 @@ Format: `- [ ] YYYY-MM-DD HH:MM · FROM → TO · what · why`
 
 - [ ] 2026-09-29 · F → H · FYI (additive, no shape change): F3 added error codes `invalid_csv` (400) and `invalid_sqlite_file` (400); `from-sqlite` with unknown tables returns `404 table_not_found`; bad `mode` → 422. DB errors are 400 (`db_unsupported_dialect` 422). Please show `error.message` as-is in the UI. OK to add these codes to the list in `docs/api-contract.md`?
 - [ ] 2026-09-29 · F → H · New rule in `CLAUDE.md` (Manual QA Test Rule): at the end of each session write `Manual Testing/frontendtest<N>.md` for our QA member. `frontendtest1.md` must include full setup (Node, `npm install`, `.env`, `npm run dev`, backend start: see `Manual Testing/backendtest1.md` Part A).
+- [ ] 2026-09-29 · F → H · **Contract change proposal (needs both to agree):** add `notes: list[str] = []` to `GenerateResponse` (+ `types.ts`). The engine now caps child tables at `MAX_ROWS_PER_TABLE` (e.g. 100k customers → invoices capped) and produces a message like "invoices would have 450,000 rows; capped at 100,000". UI would show it as an info banner on Results. Additive, nothing breaks if ignored.
 
 ---
 
@@ -374,3 +385,4 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 - 2026-09-29 · F · done: F1 AI layer (AIService.generate_structured with validate → retry-with-feedback → fallback → AIProviderError; Gemini (google-genai JSON schema), Groq (httpx JSON mode), schema-aware Mock; prompts; validate.py converters), wired `/schema/from-prompt` + `/scenarios/propose` to AI; 33 tests green + 2 live tests (skipped, no key) · left: live Gemini/Groq check with real keys, F3 CSV/DB ingest, F5–F7 · blockers: no API keys in .env yet
 - 2026-09-29 · F · done: F1 verified live (Gemini `gemini-2.5-flash` + Groq `openai/gpt-oss-120b` both pass `tests/test_ai_live.py`; real from-prompt returns a valid 6-table schema); fixed: provider names case-insensitive, unit tests forced to mock via `tests/conftest.py` · left: F3 ingest, F5–F7 · blockers: none (Gemini sometimes returns 503 "high demand"; Groq fallback covers it, so keep `AI_FALLBACK_PROVIDER=groq`; Groq free tier = 8k tokens/min ≈ 2 calls/min)
 - 2026-09-29 · F · done: F3 ingest (CSV types/PK/FK/profiles/rules, Postgres list + extract with auto-added parents, TABLESAMPLE/random sampling, children-per-parent aggregates, SQLite upload, db_guard SSRF + read-only + error mapping, privacy-filtered AI enrichment) + F4 profiler; Manual QA rule in CLAUDE.md + `Manual Testing/backendtest1.md` with samples; 79 tests green · left: F5 engine, F6 report, F7 injection, F8 Supabase · blockers: none (Postgres path verified only against a local server's auth error; full run needs `TEST_PG_URL`)
+- 2026-09-29 · F · done: F5 generation engine (profile-driven numerics/categories/dates, Faker value pools (Sonnet subagent), children-per-parent from distribution/Poisson, child-table cap keeping min children, rule enforcement incl. range/allowed_values/nested totals, null/outlier rates on unprotected columns, locale, API wired); 118 tests green incl. 5k < 5 s and 100k < 30 s; QA `Manual Testing/backendtest2.md` · left: F6 report, F7 injection, F8 Supabase, F9 deploy; contract request for `GenerateResponse.notes` · blockers: none

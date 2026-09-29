@@ -21,7 +21,15 @@ def generate(req: GenerateRequest) -> GenerateResponse:
     if too_big:
         raise RowsLimitExceeded(f"Max {cap:,} rows per table. Requested: {too_big}")
 
-    tables = generator.generate(req.schema_, req.rows, seed=req.seed)
+    tables = generator.generate(
+        req.schema_,
+        req.rows,
+        seed=req.seed,
+        null_rate=req.null_rate,
+        outlier_rate=req.outlier_rate,
+        locale=req.locale,
+        row_cap=cap,
+    )
     report = build_report(req.schema_, tables)
     dataset = GeneratedDataset(dataset_id=new_dataset_id(), schema=req.schema_, tables=tables, report=report)
     save_dataset(dataset)

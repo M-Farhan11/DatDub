@@ -43,8 +43,15 @@ synthetic data studio** (see `idea.md`).
   `db_guard` (Postgres-only, query-param lockdown, SSRF guard with IP pinning via
   `hostaddr`, read-only txn + 10 s timeout, fixed error messages), privacy-filtered
   AI enrichment (heuristic fallback when AI is down). QA doc: `Manual Testing/backendtest1.md`.
+- **DONE (F5):** generation engine: vectorized, seeded, profile-driven
+  (histograms, category weights, date ranges), Faker value pools
+  (`engine/pools.py`), children per parent from the sampled distribution or
+  Poisson, child tables capped at `MAX_ROWS_PER_TABLE`, all 5 rule kinds
+  enforced, null/outlier rates on non-key/non-rule columns. 5k customers < 5 s,
+  100k < 30 s. QA doc: `Manual Testing/backendtest2.md`.
 - **IN PROGRESS:** —
-- **NEXT:** F5 engine hardening (child-table caps, Faker pools, null/outlier), F6 rules, F7 injection
+- **NEXT:** F6 validation report (types/nullability, per-rule checks, expected
+  violations, similarity), F7 scenario injection + ground truth
 
 ## Haider (frontend + documents/export)
 
@@ -69,6 +76,8 @@ synthetic data studio** (see `idea.md`).
   `GROQ_MODEL=openai/gpt-oss-120b`); a provider without key + model is skipped (→ mock).
 
 ## Decisions log
+
+- 2026-09-29: F5: child tables above the row cap are scaled down (not rejected), keeping each parent's minimum children while the budget allows; `GenerateResponse.notes` proposed to surface this. Faker pools use a fixed seed (cached per locale); the request seed only drives the picks, so output stays reproducible. Nulls/outliers never touch keys or rule columns, so rules stay 100% valid unless a scenario breaks them on purpose.
 
 - 2026-09-29: F3: ingest caps `row_count_hint` at 1000; key columns become string `id`s (the engine generates keys); self-references/cycles/composite keys are dropped with a note; DB read-only + timeout are set per transaction (not as startup `options`, which Supabase's pooler rejects). New rule: one `Manual Testing/{backend,frontend}test<N>.md` per session for QA.
 
