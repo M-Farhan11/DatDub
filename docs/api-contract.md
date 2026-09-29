@@ -202,14 +202,23 @@ Res
 {
   "overall": "PASS | FAIL",
   "checks": [
-    { "name": "PK uniqueness", "table": "customers", "status": "PASS", "score": 1.0, "detail": "" },
-    { "name": "FK integrity", "table": "invoices", "status": "PASS", "score": 1.0, "detail": "" },
-    { "name": "Rule r1", "table": "invoices", "status": "PASS", "score": 1.0,
-      "detail": "1480/1480 pass", "expected_violations": 0 }
+    { "name": "PK uniqueness", "table": "customers", "status": "PASS", "score": 1.0, "detail": "500/500 unique" },
+    { "name": "FK integrity (customer_id → customers)", "table": "invoices", "status": "PASS", "score": 1.0, "detail": "1480/1480 resolve" },
+    { "name": "Types & nullability", "table": "invoices", "status": "PASS", "score": 1.0, "detail": "1480/1480 rows valid" },
+    { "name": "Rule r3: A payment never exceeds its invoice total", "table": "payments", "status": "PASS", "score": 1.0,
+      "detail": "1195/1200 pass, 5 injected (expected)", "expected_violations": 5 }
   ],
   "similarity": { "overall": 0.91, "per_column": { "invoices.total": 0.88 } }
 }
 ```
+Checks per table: `PK uniqueness`, `FK integrity (<col> → <parent>)` (one
+per FK), `Types & nullability`; then one `Rule <id>: <description>` per rule.
+A failing row whose PK is in the ground truth for that table counts as
+`expected_violations` and does not fail the check. `score` = share of rows
+that pass or are expected. `overall` = PASS when every check passes.
+`similarity` is `null` unless columns carry a sample profile (CSV / DB
+sample mode): 1 − TVD for categories, histogram overlap for numbers;
+keys, unique columns and injected rows are left out.
 
 `GroundTruthEntry`
 ```json

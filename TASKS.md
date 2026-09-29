@@ -218,13 +218,23 @@ integrity is 100%. AI is called 0 times during generation (plans only).
 > Tests: `tests/test_engine.py` (incl. both speed targets), `tests/test_pools.py`.
 
 ### F6 · Validation report (inside Core / by Checkpoint 1)
-- [ ] PK uniqueness, FK integrity, type/nullability, per-rule pass/fail counts
-- [ ] Injected scenario violations counted as **expected**, not failures
-- [ ] Similarity vs profile when a sample exists (category TVD, numeric
+- [x] PK uniqueness, FK integrity, type/nullability, per-rule pass/fail counts
+- [x] Injected scenario violations counted as **expected**, not failures
+- [x] Similarity vs profile when a sample exists (category TVD, numeric
       histogram overlap → 0–100%)
 
 **Accept:** a clean generation reports all PASS; an intentionally broken row
 shows up as FAIL in a unit test.
+
+> F6 notes: `validation/checks.py` `build_report(schema, tables, ground_truth=None)`.
+> Checks: PK, FK (one per FK; null FK = nullability, not integrity), `Types & nullability`
+> per table, one `Rule <id>: <description>` per rule (nulls pass; non-numeric fails
+> range). A failing row whose PK is in the ground truth **for that table** counts as
+> expected (F7: put the affected row IDs of the table whose check should flag them).
+> Parent lookups dedupe keys, so an injected duplicate PK does not crash other checks.
+> Similarity skips keys/unique columns and injected rows. F7 must call
+> `build_report(..., ground_truth)` in `api/generate.py` after injection.
+> Tests: `tests/test_validation.py`; report on 100k customers ≈ 1 s.
 
 ### ✅ CHECKPOINT 1 (3:30–4:00) with Haider: template → generate → preview → report on the real backend
 
@@ -386,3 +396,4 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 - 2026-09-29 · F · done: F1 verified live (Gemini `gemini-2.5-flash` + Groq `openai/gpt-oss-120b` both pass `tests/test_ai_live.py`; real from-prompt returns a valid 6-table schema); fixed: provider names case-insensitive, unit tests forced to mock via `tests/conftest.py` · left: F3 ingest, F5–F7 · blockers: none (Gemini sometimes returns 503 "high demand"; Groq fallback covers it, so keep `AI_FALLBACK_PROVIDER=groq`; Groq free tier = 8k tokens/min ≈ 2 calls/min)
 - 2026-09-29 · F · done: F3 ingest (CSV types/PK/FK/profiles/rules, Postgres list + extract with auto-added parents, TABLESAMPLE/random sampling, children-per-parent aggregates, SQLite upload, db_guard SSRF + read-only + error mapping, privacy-filtered AI enrichment) + F4 profiler; Manual QA rule in CLAUDE.md + `Manual Testing/backendtest1.md` with samples; 79 tests green · left: F5 engine, F6 report, F7 injection, F8 Supabase · blockers: none (Postgres path verified only against a local server's auth error; full run needs `TEST_PG_URL`)
 - 2026-09-29 · F · done: F5 generation engine (profile-driven numerics/categories/dates, Faker value pools (Sonnet subagent), children-per-parent from distribution/Poisson, child-table cap keeping min children, rule enforcement incl. range/allowed_values/nested totals, null/outlier rates on unprotected columns, locale, API wired); 118 tests green incl. 5k < 5 s and 100k < 30 s; QA `Manual Testing/backendtest2.md` · left: F6 report, F7 injection, F8 Supabase, F9 deploy; contract request for `GenerateResponse.notes` · blockers: none
+- 2026-09-29 · F · done: F6 validation report (types/nullability, per-rule row checks for all 5 rule kinds, expected violations from ground truth, similarity = category TVD + histogram overlap, dedupe-safe parent lookups); contract doc example updated (no shape change); 127 tests green; QA `Manual Testing/backendtest3.md` · left: F7 injection + ground truth, F8 Supabase, F9 deploy · blockers: none
