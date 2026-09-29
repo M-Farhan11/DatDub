@@ -13,8 +13,8 @@ synthetic data studio** (see `idea.md`).
 | Milestone | Status |
 |---|---|
 | MVP locked + work split | DONE |
-| H0 contract freeze (F0) + frontend scaffold (H0) | F0 DONE · H0 TODO |
-| Checkpoint 1: template → generate → preview → report | backend ready · waiting for H0–H4 |
+| H0 contract freeze (F0) + frontend scaffold (H0) | F0 DONE · H0 DONE (not pushed yet) |
+| Checkpoint 1: template → generate → preview → report | works end to end locally (frontend + backend); needs browser QA |
 | Checkpoint 2: DB connect, scenarios, PDF, ZIP | TODO |
 | Deployed demo (Vercel + Railway + Supabase) | TODO |
 | Freeze + rehearsal | TODO |
@@ -74,10 +74,16 @@ synthetic data studio** (see `idea.md`).
 
 ## Haider (frontend + documents/export)
 
-- **DONE:** —
-- **IN PROGRESS:** —
-- **NEXT:** H0: pull the repo, scaffold `frontend/` (Vite + React + TS +
-  Tailwind + shadcn), app shell + stepper, API client with fixtures mode
+- **DONE (H0):** Vite + React + TS + Tailwind v4 + shadcn/ui + lucide, @xyflow/react,
+  @tanstack/react-table v9; landing page + studio shell from the Stitch references;
+  typed API client (`src/api/client.ts`, `VITE_USE_FIXTURES` toggle) + typed fixtures;
+  studio state (context + reducer; DB credentials in memory only).
+- **IN PROGRESS (built, verified against the local backend, awaiting browser QA):**
+  H1 source screens (prompt, CSV, 3-step DB flow, templates), H2 schema graph +
+  column details, H3 configure, H4 results, H5 edge cases + answer key, H6/H7 UI parts
+  (invoice viewer and ZIP button show "coming soon" while the backend returns 501).
+- **NEXT:** browser click-through (`Manual Testing/frontendtest1.md`), commit + push,
+  H6 invoice PDF backend, H7 ZIP backend, H8 deploy.
 
 ## BLOCKED
 
@@ -87,6 +93,10 @@ synthetic data studio** (see `idea.md`).
 
 - The system default Python is 3.14 (no `pydantic-core` wheels). Create the
   backend venv with Python 3.12: `py -3.12 -m venv .venv`.
+  (H, 2026-09-29: on Haider's machine the pinned requirements install and run fine
+  on Python 3.14. Note that `backend/.venv` is not in `.gitignore`.)
+- Frontend: `frontend/.env.local` sets `VITE_USE_FIXTURES=false` to use the real
+  backend; `true` runs the whole studio on built-in sample data.
 - `google-genai` pulls pydantic 2.13 (pinned in requirements).
 - Gemini free tier sometimes returns `503 UNAVAILABLE` ("high demand"). Keep
   `AI_FALLBACK_PROVIDER=groq` so calls fall through to Groq. Groq free tier is
