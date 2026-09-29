@@ -82,14 +82,17 @@ them afterwards.
 ## Scenario catalogue (deterministic injection)
 | kind | effect |
 |---|---|
-| `null_burst` | N rows get NULL in a nullable column |
+| `null_burst` | N rows get NULL in a non-key column (on a required column: an intended nullability violation) |
 | `extreme_value` | N rows get values far outside the normal range |
 | `duplicate_record` | N rows are duplicated with new PKs (e.g. duplicate payment) |
 | `boundary_date` | N rows at date boundaries (month end, leap day, far past/future) |
 | `rule_violation` | N rows deliberately break a named rule (e.g. payment > invoice) |
 
 Each injection writes a `GroundTruthEntry` (affected IDs + expected
-behaviour). The validator counts those violations as *expected*.
+behaviour) and declares exactly which checks it breaks on which rows,
+including knock-on effects in other tables (a changed line item breaks its
+invoice total). The validator counts only those failures as *expected*; any
+other failure on an injected row still fails the report.
 
 ## AI Workflow
 | Call | Input sent to the LLM | Output model |
