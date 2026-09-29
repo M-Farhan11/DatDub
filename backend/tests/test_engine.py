@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.engine import generator, store
 from app.main import app
-from app.schemas import ColumnProfile, ColumnSchema, DatasetSchema, ForeignKey, TableSchema
+from app.schemas import ColumnProfile, ColumnSchema, DatasetSchema, ForeignKey, Rule, TableSchema
 from app.templates import ecommerce, finance
 
 client = TestClient(app)
@@ -197,3 +197,30 @@ def test_api_generate_and_page_and_limit():
 
     too_big = client.post("/api/generate", json={"schema": schema, "rows": {"customers": 10_000_000}})
     assert too_big.status_code == 422 and too_big.json()["error"]["code"] == "rows_limit_exceeded"
+
+
+def test_range_rule_bounds_drive_generation_not_just_clipping():
+    # AI drafts often give the range only as a rule (GPA 0-4), not on the column
+    schema = DatasetSchema(
+        name="uni",
+        source="prompt",
+        tables=[
+            TableSchema(
+                name="student",
+                primary_key="student_id",
+                columns=[
+                    ColumnSchema(name="student_id", data_type="string", semantic_type="id"),
+                    ColumnSchema(name="gpa", data_type="float", semantic_type="generic_number"),
+                    ColumnSchema(name="credits", data_type="integer", semantic_type="quantity"),
+                ],
+            )
+        ],
+        rules=[
+            Rule(id="r1", kind="range", table="student", column="gpa", params={"min": 0, "max": 4}),
+            Rule(id="r2", kind="range", table="student", column="credits", params={"min": 1, "max": 4}),
+        ],
+    )
+    df = generator.generate(schema, {"student": 1000}, seed=3)["student"]
+    assert df["gpa"].between(0, 4).all() and df["gpa"].nunique() > 100
+    assert (df["gpa"] == 4).mean() < 0.05
+    assert set(df["credits"]) == {1, 2, 3, 4}

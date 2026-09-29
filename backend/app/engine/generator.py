@@ -78,6 +78,7 @@ def generate(
     order = topological_order(schema)
     depth = {t.name: i for i, t in enumerate(order)}
     tables: dict[str, pd.DataFrame] = {}
+    bounds = _range_rule_bounds(schema)
 
     for table in order:
         parent_fks = [fk for fk in table.foreign_keys if fk.ref_table in tables and fk.ref_table != table.name]
@@ -115,6 +116,7 @@ def generate(
                 else:
                     data[col.name] = rng.choice(pks, size=n) if len(pks) else np.full(n, None, dtype=object)
             else:
+                col = _with_rule_bounds(col, bounds.get((table.name, col.name)))
                 data[col.name] = _column_values(col, n, rng, locale)
         tables[table.name] = pd.DataFrame(data)
 
@@ -221,6 +223,30 @@ def _as_float(value) -> float | None:
         return float(value) if value is not None and value != "" else None
     except (TypeError, ValueError):
         return None
+
+
+def _range_rule_bounds(schema: DatasetSchema) -> dict[tuple[str, str], tuple[float | None, float | None]]:
+    """(table, column) -> (min, max) from `range` rules."""
+    return {
+        (r.table, r.column): (_as_float(r.params.get("min")), _as_float(r.params.get("max")))
+        for r in schema.rules
+        if r.kind == "range" and r.column
+    }
+
+
+def _with_rule_bounds(col: ColumnSchema, bounds: tuple[float | None, float | None] | None) -> ColumnSchema:
+    """Generate inside a column's range rule when neither the column nor its profile
+    sets a bound; otherwise values drawn from the default range pile up at the
+    rule's edge once the rule clips them (e.g. every GPA = 4.0)."""
+    if not bounds:
+        return col
+    p = col.profile
+    update = {}
+    if col.min is None and (p is None or p.min is None) and bounds[0] is not None:
+        update["min"] = bounds[0]
+    if col.max is None and (p is None or p.max is None) and bounds[1] is not None:
+        update["max"] = bounds[1]
+    return col.model_copy(update=update) if update else col
 
 
 def _num_bounds(col: ColumnSchema) -> tuple[float, float]:
