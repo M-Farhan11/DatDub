@@ -1,10 +1,10 @@
 import type { DatasetSchema, TableSchema } from "@/api/types"
 
-export const NODE_WIDTH = 280
-const COLUMN_GAP = 120
+export const NODE_WIDTH = 256
+const COLUMN_GAP = 190 // room for the plain-words edge labels
 const ROW_GAP = 40
 const HEADER_HEIGHT = 48
-const ROW_HEIGHT = 32
+const ROW_HEIGHT = 34
 
 export const estimateHeight = (table: TableSchema) => HEADER_HEIGHT + table.columns.length * ROW_HEIGHT + 12
 

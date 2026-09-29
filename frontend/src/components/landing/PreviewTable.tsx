@@ -65,8 +65,8 @@ export function PreviewTable({ name, rows, columns, anomaly, cardRef, fkRowRef, 
         ))}
       </div>
       {anomaly && (
-        <div className="m-2 flex items-center gap-2 rounded-lg bg-surface-highest/60 p-2.5 font-mono text-code-sm text-expected">
-          <span className="size-2 shrink-0 rounded-full bg-coral" aria-hidden="true" />
+        <div className="m-2 flex items-center gap-2 rounded-lg bg-primary-tint/70 p-2.5 font-mono text-code-sm text-primary-deep">
+          <span className="size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
           <span className="truncate">{anomaly}</span>
         </div>
       )}

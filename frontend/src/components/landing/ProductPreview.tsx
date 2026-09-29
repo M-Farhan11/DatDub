@@ -108,7 +108,7 @@ export function ProductPreview() {
   }, [measure])
 
   return (
-    <section aria-label="Product preview" className="w-full pb-20 md:pb-28">
+    <section aria-label="Product preview" className="w-full pb-14 md:pb-16">
       <div className="mx-auto max-w-[1160px] px-margin md:px-margin-lg">
         <figure className="w-full overflow-hidden rounded-xl bg-card shadow-xl">
           <figcaption className="sr-only">
@@ -145,14 +145,14 @@ export function ProductPreview() {
                 )
               )}
             </ol>
-            <span className="flex items-center gap-1.5 rounded-full bg-pass/10 px-3 py-1 font-mono text-code-sm font-medium text-pass">
-              <span className="size-2 rounded-full bg-pass" aria-hidden="true" />
+            <span className="flex items-center gap-1.5 rounded-full bg-primary-tint px-3 py-1 font-mono text-code-sm font-medium text-primary-deep">
+              <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
               Integrity: 100% pass
             </span>
           </div>
 
           {/* workspace */}
-          <div className="relative flex min-h-[580px] flex-col bg-canvas md:flex-row">
+          <div className="relative flex flex-col bg-canvas md:flex-row">
             <div
               className="flex shrink-0 items-center gap-2 bg-card px-2 py-2 md:w-14 md:flex-col md:py-4"
               aria-hidden="true"
@@ -168,7 +168,7 @@ export function ProductPreview() {
               </span>
             </div>
 
-            <div ref={canvasRef} className="relative flex-1 overflow-x-auto p-4 md:p-6">
+            <div ref={canvasRef} className="relative flex-1 overflow-x-auto p-4 md:p-8">
               <svg className="pointer-events-none absolute inset-0 z-0 size-full" aria-hidden="true">
                 <defs>
                   <marker id="preview-dot" markerWidth="6" markerHeight="6" refX="3" refY="3">
@@ -210,8 +210,8 @@ export function ProductPreview() {
             <span>
               4 tables <span className="text-hint">·</span> 0 orphan records
             </span>
-            <span className="flex items-center gap-1.5 font-medium text-pass">
-              <span className="size-2 rounded-full bg-pass" aria-hidden="true" />
+            <span className="flex items-center gap-1.5 font-medium text-primary-deep">
+              <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
               Referential integrity: 100% pass
             </span>
           </div>

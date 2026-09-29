@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import type { StudioState } from "@/state/studioReducer"
 import { useStudio } from "@/state/useStudio"
-import { Sidebar } from "./Sidebar"
+import { Sidebar, type Workspace, type WorkspaceState } from "./Sidebar"
 import { TopBar } from "./TopBar"
 
 interface AppShellProps {
@@ -9,14 +10,45 @@ interface AppShellProps {
   onHome: () => void
 }
 
+/** Which sidebar workspace is active, and why the others may be unavailable. */
+function workspaceState(state: StudioState): WorkspaceState {
+  const hasInvoices = Boolean(state.schema?.document_hints?.invoice)
+  const disabledReason: WorkspaceState["disabledReason"] = {}
+  if (!state.schema) disabledReason.relational = "choose a source first"
+  if (!state.result) {
+    disabledReason.tabular = "generate a dataset first"
+    disabledReason.documents = "generate a dataset first"
+  } else if (!hasInvoices) {
+    disabledReason.documents = "this schema has no invoices"
+  }
+
+  let active: Workspace | null = null
+  if (state.step === "Schema") active = "relational"
+  else if (state.step === "Results" && state.resultsTab === "data") active = "tabular"
+  else if (state.step === "Results" && state.resultsTab === "invoices") active = "documents"
+
+  return { active, disabledReason }
+}
+
 export function AppShell({ children, onHome }: AppShellProps) {
   const { state, dispatch } = useStudio()
   const [expanded, setExpanded] = useState(false)
   const title = state.schema?.name ?? "New dataset"
 
+  const openWorkspace = (workspace: Workspace) => {
+    if (workspace === "relational") dispatch({ type: "goTo", step: "Schema" })
+    else dispatch({ type: "openResults", tab: workspace === "tabular" ? "data" : "invoices" })
+  }
+
   return (
     <div className="min-h-dvh bg-surface-low">
-      <Sidebar expanded={expanded} onToggle={() => setExpanded((v) => !v)} onHome={onHome} />
+      <Sidebar
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+        onHome={onHome}
+        workspace={workspaceState(state)}
+        onOpen={openWorkspace}
+      />
       <TopBar
         title={title}
         step={state.step}

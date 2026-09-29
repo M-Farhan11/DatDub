@@ -27,10 +27,10 @@ export function TableNode({ data }: NodeProps<TableNodeType>) {
       )}
     >
       <div className="flex h-12 items-center justify-between gap-2 border-b border-line bg-surface-low px-4">
-        <span className="truncate font-mono text-code-md font-medium text-ink">{table.name}</span>
-        <span className="tabular shrink-0 font-mono text-code-sm text-hint">
-          {table.row_count_hint ? `${formatInt(table.row_count_hint)} rows` : "rows from links"}
-        </span>
+        <span className="truncate font-mono text-[14px] font-semibold text-ink">{table.name}</span>
+        {table.row_count_hint ? (
+          <span className="tabular shrink-0 font-mono text-code-sm text-hint">{formatInt(table.row_count_hint)} rows</span>
+        ) : null}
       </div>
       <ul className="py-1.5">
         {table.columns.map((col) => {
@@ -46,14 +46,14 @@ export function TableNode({ data }: NodeProps<TableNodeType>) {
                 aria-label={`${table.name}.${col.name}, ${col.data_type}${isPk ? ", primary key" : ""}${isFk ? ", foreign key" : ""}${col.pii ? ", personal data" : ""}`}
                 onClick={() => onSelect({ table: table.name, column: col.name })}
                 className={cn(
-                  "nodrag nopan flex h-8 w-full items-center gap-2 px-4 text-left transition-colors",
+                  "nodrag nopan flex h-[34px] w-full items-center gap-2 px-4 text-left transition-colors",
                   isSelected ? "bg-primary-tint" : "hover:bg-surface-low",
                 )}
               >
                 <ColumnTypeIcon type={col.data_type} className="size-3.5 shrink-0 text-hint" />
                 <span
                   className={cn(
-                    "min-w-0 flex-1 truncate font-mono text-code-sm",
+                    "min-w-0 flex-1 truncate font-mono text-[12.5px]",
                     isPk ? "font-medium text-primary-deep" : isFk ? "font-medium text-primary" : "text-ink",
                   )}
                 >
@@ -62,7 +62,7 @@ export function TableNode({ data }: NodeProps<TableNodeType>) {
                 {isPk && <Tag tone="pk">PK</Tag>}
                 {isFk && <Tag tone="fk">FK</Tag>}
                 {col.pii && <Tag tone="pii">PII</Tag>}
-                <span className="shrink-0 font-mono text-code-sm text-hint">{col.data_type}</span>
+                <span className="shrink-0 font-mono text-[11.5px] text-hint">{col.data_type}</span>
               </button>
               <Handle id={`${col.name}-out`} type="source" position={Position.Right} className={handleClass} isConnectable={false} />
             </li>
