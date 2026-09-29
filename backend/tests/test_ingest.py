@@ -399,7 +399,7 @@ PG_URL = os.environ.get("TEST_PG_URL")
 def test_postgres_end_to_end(private_hosts_allowed):
     from sqlalchemy import create_engine, text
 
-    admin = create_engine(PG_URL.replace("postgresql://", "postgresql+psycopg://", 1))
+    admin = create_engine("postgresql+psycopg://" + PG_URL.split("://", 1)[1])
     with admin.begin() as c:
         c.execute(text("DROP TABLE IF EXISTS f3_orders, f3_customers"))
         c.execute(text("CREATE TABLE f3_customers (customer_id text PRIMARY KEY, email text, tier text)"))
