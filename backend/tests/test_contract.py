@@ -95,7 +95,11 @@ def test_propose_scenarios():
     res = client.post("/api/scenarios/propose", json={"schema": _template(), "instruction": "edge cases"})
     assert res.status_code == 200
     proposals = ProposeScenariosResponse.model_validate(res.json()).proposals
-    assert proposals and {p.kind for p in proposals} <= {"rule_violation", "null_burst", "extreme_value"}
+    assert proposals and {p.kind for p in proposals} <= {
+        "rule_violation", "null_burst", "extreme_value", "duplicate_record", "boundary_date"
+    }
+    table_names = {t["name"] for t in _template()["tables"]}
+    assert all(p.table in table_names for p in proposals)
 
 
 def test_generate_preview_page_and_documents():

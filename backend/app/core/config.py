@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     gemini_model: str = ""
     groq_api_key: str = ""
     groq_model: str = ""
+    ai_timeout_seconds: float = 30.0
 
     # comma-separated list of allowed frontend origins
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
