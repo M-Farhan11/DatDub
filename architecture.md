@@ -108,12 +108,65 @@ external LLM; the source DB is read-only and only a small sample is read;
 output is newly generated values, not copies. We do **not** claim
 differential privacy.
 
+**AI call budget:** 1–2 calls per job regardless of row count (schema
+understanding + scenario proposals). The output is a plan of a few KB, and
+the engine produces every row. 500 rows and 500,000 rows cost the same
+number of AI calls.
+
 ## Database connection (source DB)
-- Postgres URL or SQLite upload → SQLAlchemy `inspect()` → tables, columns, PK, FK
-- Read-only transaction, `statement_timeout`, `LIMIT ≤ 500` per table
-- Mode `schema_only` reads no rows; `schema_and_sample` reads the sample and profiles it
-- The URL is never logged, stored or returned
-- Demo DB: Supabase project seeded by `scripts/seed_demo_db.sql`, accessed with a read-only role
+
+**Supported:** Postgres (Supabase, Neon, RDS, Railway PG, …) via a URL or
+separate fields, and SQLite via file upload. MySQL is in the backlog.
+SQL Server/Oracle are out of scope.
+
+**Three-step flow (the user controls each step):**
+1. **List tables** (`POST /api/db/tables`): table names, column counts,
+   `estimated_rows` from `pg_class.reltuples`, FK references. **No rows read.**
+2. **Select:** the user ticks tables. FK parent tables are auto-added so the
+   relations stay valid. Mode `schema_only` (no rows) or `schema_and_sample`.
+3. **Extract** (`POST /api/schema/from-db`): SQLAlchemy `inspect()` gives
+   columns, types, PK, FK, nullability, unique. In sample mode:
+   - read `sample_limit` rows per table (default 200, max 1000): `TABLESAMPLE SYSTEM` for large tables, `ORDER BY random() LIMIT n` for small ones;
+   - profile the rows in memory;
+   - **discard the raw rows**.
+
+**What reaches the AI:** table/column names, types, constraints and
+aggregate stats. Category values only for columns with < 20 distinct values
+that are not PII. PII values (names, emails, phones, addresses) are never
+sent and never copied into the output; Faker regenerates them.
+
+**Safety (outside users can connect their own DB):**
+- Only `postgresql://` / `postgres://` URLs are accepted (plus SQLite upload).
+- **SSRF guard:** resolve the host and reject loopback, private (10/8, 172.16/12, 192.168/16), link-local (169.254/16, cloud metadata) and IPv6 equivalents when `ALLOW_PRIVATE_DB_HOSTS=false`. Set it to `true` only for local dev.
+- `connect_timeout=5`, read-only transaction (`SET TRANSACTION READ ONLY`), `statement_timeout=10s`, a `LIMIT` on every query.
+- **Stateless connection:** no connection or credential survives the request.
+  - The frontend keeps the credentials in memory only and re-sends them for each call.
+  - They are never logged (redacted from errors), stored or echoed back.
+- The UI recommends a read-only DB user and shows the SQL to create one.
+- A DB on someone's own laptop (`localhost`) is not reachable from the
+  deployed backend. The user runs our backend locally or exposes the DB with a
+  tunnel (ngrok / Cloudflare Tunnel). The UI states this.
+
+**Demo DB:** a Supabase project seeded by `scripts/seed_demo_db.sql`, accessed with a read-only role.
+
+## Generation at scale
+- **Limits:** `MAX_ROWS_PER_TABLE` = 100,000 by default, with a hard ceiling of 500,000. The UI warns on "large jobs".
+- **Vectorized:** NumPy generates numerics, dates and categoricals a whole column at a time.
+- **Pools instead of per-row Faker:**
+  - pre-generate ~5,000 first names, last names, streets, companies, etc. with a seeded Faker;
+  - combine them with vectorized random indices;
+  - build emails from name + sequence number so they stay unique.
+- **FKs:** child FK columns sample parent PKs that were already generated, so integrity is 100% by construction.
+- **Delivery:** the UI only receives 50 preview rows per table. The full data comes from paged reads and the ZIP.
+- **Memory:** about 100–200 MB for 500k rows × 10 columns.
+- **Beyond 500k:** chunked, streamed export is in the backlog.
+
+## Access model (no accounts)
+Open website, no login/register.
+- Each dataset gets a random, unguessable `dataset_id`.
+- The in-memory store keeps datasets for `DATASET_TTL_MINUTES` (60), at most `MAX_DATASETS` (20), and evicts the oldest first.
+- Quota protection: the row caps, 1–2 AI calls per job and the Groq/Mock fallback.
+- A per-IP rate limit is in the backlog.
 
 ## Deployment
 ```text
@@ -122,7 +175,9 @@ Vercel (React) ──HTTPS──► Railway (FastAPI) ──► Gemini / Groq
                                   └──read-only──► Supabase Postgres (demo source DB)
 ```
 Env: `AI_PROVIDER`, `AI_FALLBACK_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`,
-`GROQ_API_KEY`, `GROQ_MODEL`, `CORS_ORIGINS`, `MAX_ROWS_PER_TABLE`.
+`GROQ_API_KEY`, `GROQ_MODEL`, `CORS_ORIGINS`, `MAX_ROWS_PER_TABLE` (100000),
+`MAX_DATASETS` (20), `DATASET_TTL_MINUTES` (60), `ALLOW_PRIVATE_DB_HOSTS`
+(false when deployed, true locally), `DEFAULT_SAMPLE_LIMIT` (200), `MAX_SAMPLE_LIMIT` (1000).
 
 ## Risks
 | Risk | Mitigation |
@@ -130,5 +185,7 @@ Env: `AI_PROVIDER`, `AI_FALLBACK_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`,
 | AI returns invalid JSON / is down | Structured output + retry + Groq fallback + Mock + templates |
 | Supabase unreachable during the demo | Local Postgres, SQLite upload, or template fallback |
 | In-memory store lost on a Railway restart | Regenerate (seeded); acceptable for the demo |
-| Generation too slow | 10k rows/table cap, vectorized numpy where easy |
+| Generation too slow / out of memory | 100k default cap (500k ceiling), vectorized NumPy, value pools instead of per-row Faker |
+| Public DB-connect feature abused (SSRF) | Postgres-only, private-IP block, timeouts, read-only, no stored credentials |
+| Strangers burn the AI quota | 1–2 AI calls per job, row caps; per-IP rate limit in the backlog |
 | Merge conflicts | File ownership in `TASKS.md`; contract frozen at H0 |

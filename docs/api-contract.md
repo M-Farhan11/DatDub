@@ -81,13 +81,50 @@ Res `{ "schema": DatasetSchema, "notes": ["AI assumed payments are 1:N per order
 ### `POST /api/schema/from-csv` (multipart, field `files`, 1..n CSV)
 Res `{ "schema": DatasetSchema, "notes": [...] }` (columns carry a `profile`)
 
-### `POST /api/schema/from-db`
-Req `{ "url": "postgresql://user:pass@host:5432/db", "mode": "schema_only | schema_and_sample", "tables": null, "sample_limit": 500 }`
-Res `{ "schema": DatasetSchema, "tables_found": ["customers", ...], "rows_sampled": 812, "notes": [...] }`
-The URL is never stored, logged or echoed back.
+### Database connection: two steps, no stored connection
 
-### `POST /api/schema/from-sqlite` (multipart, field `file`, plus a form field `mode`)
-Res: same as `from-db`.
+`DbConnection` (send **either** `url` **or** the individual fields):
+```json
+{ "url": "postgresql://user:pass@host:5432/db" }
+{ "host": "db.xxxx.supabase.co", "port": 5432, "database": "postgres",
+  "user": "readonly_user", "password": "…", "sslmode": "require" }
+```
+- Only Postgres is accepted (`postgresql://` / `postgres://`). Private, loopback and link-local hosts are rejected when `ALLOW_PRIVATE_DB_HOSTS=false` (the deployed default).
+- The backend keeps **no connection between calls**. The frontend holds the credentials in memory only (never in `localStorage`) and re-sends them with each call.
+- Credentials are never stored, logged or echoed back.
+
+#### `POST /api/db/tables` (Step A: list tables, reads NO rows)
+Req `{ "connection": DbConnection }`
+Res
+```json
+{ "tables": [
+  { "name": "customers", "schema": "public", "column_count": 12, "estimated_rows": 48000,
+    "references": [] },
+  { "name": "invoices", "schema": "public", "column_count": 9, "estimated_rows": 210000,
+    "references": ["customers"] }
+]}
+```
+`estimated_rows` comes from Postgres statistics (`pg_class.reltuples`); no `COUNT(*)` is run.
+
+#### `POST /api/schema/from-db` (Steps B+C: extract the selected tables)
+Req
+```json
+{ "connection": DbConnection,
+  "tables": ["customers", "invoices"],
+  "mode": "schema_only | schema_and_sample",
+  "sample_limit": 200 }
+```
+- `tables`: FK parent tables are **auto-added**, and the response lists them in `auto_added`.
+- `sample_limit`: default 200, max 1000 rows per table. Ignored in `schema_only`.
+- Sampling uses `TABLESAMPLE SYSTEM` for large tables and `ORDER BY random() LIMIT n` for small ones. It runs inside a read-only transaction with a 10 s `statement_timeout`.
+- Sample rows are profiled in memory and then discarded. They are never stored or sent to the AI.
+
+Res `{ "schema": DatasetSchema, "auto_added": ["customers"], "rows_sampled": 400, "notes": [...] }`
+
+Errors: `db_unreachable`, `db_auth_failed`, `db_host_not_allowed`, `db_timeout`, `db_unsupported_dialect` (400/422, with a human-readable message).
+
+### `POST /api/schema/from-sqlite` (multipart: field `file`, form fields `mode`, `sample_limit`, optional `tables`)
+Res: same as `from-db`. The uploaded file is deleted after the request.
 
 ### `POST /api/scenarios/propose`
 Req `{ "schema": DatasetSchema, "instruction": "Add realistic edge cases for testing" }`
@@ -114,6 +151,13 @@ Req
 }
 ```
 `rows` sets counts for root tables. Child counts come from cardinality.
+Limits: each table is capped at `MAX_ROWS_PER_TABLE` (default 100,000),
+with a hard ceiling of 500,000 per table. A request above the cap returns
+`422 rows_limit_exceeded`. Only 50 preview rows per table are returned; the
+full data is available through the paged table endpoint and the ZIP.
+Datasets expire after `DATASET_TTL_MINUTES` (60) and at most
+`MAX_DATASETS` (20) are kept, oldest evicted first. An expired or unknown
+ID returns `404 dataset_not_found`.
 Res
 ```json
 {

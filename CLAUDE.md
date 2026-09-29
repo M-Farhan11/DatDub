@@ -307,6 +307,15 @@ Remaining work
   strings that users supply.
 - Open source databases **read-only** (read-only transaction + statement
   timeout + row `LIMIT`). Never write to a source database.
+- DB connections are stateless: credentials live only for one request.
+  The frontend keeps them in memory only (never `localStorage`).
+- SSRF guard: accept only Postgres URLs (plus SQLite upload). Reject
+  loopback, private, link-local and cloud-metadata hosts unless
+  `ALLOW_PRIVATE_DB_HOSTS=true` (local dev only).
+- Sample rows are profiled in memory and then discarded. They are never
+  stored or sent to the AI.
+- Generation is bounded: `MAX_ROWS_PER_TABLE` (100k default, 500k
+  ceiling). AI is never called per row.
 
 ## Git / Change Rules
 
