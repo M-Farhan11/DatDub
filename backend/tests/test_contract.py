@@ -9,8 +9,6 @@ from app.engine import store
 from app.main import app
 from app.schemas import (
     DatasetSchema,
-    DbTablesResponse,
-    FromDbResponse,
     GenerateResponse,
     ProposeScenariosResponse,
     SchemaResponse,
@@ -19,7 +17,6 @@ from app.schemas import (
 )
 
 client = TestClient(app)
-CONN = {"url": "postgresql://reader:s3cr3t-pw@db.example.com:5432/postgres"}
 
 
 @pytest.fixture(autouse=True)
@@ -59,36 +56,12 @@ def test_from_prompt_and_csv():
     SchemaResponse.model_validate(res.json())
 
 
-def test_db_endpoints_never_echo_password():
-    res = client.post("/api/db/tables", json={"connection": CONN})
-    assert res.status_code == 200
-    DbTablesResponse.model_validate(res.json())
-    assert "s3cr3t-pw" not in res.text
-
-    res = client.post(
-        "/api/schema/from-db",
-        json={"connection": CONN, "tables": ["payments"], "mode": "schema_and_sample", "sample_limit": 100},
-    )
-    assert res.status_code == 200
-    body = FromDbResponse.model_validate(res.json())
-    assert set(body.auto_added) == {"invoices", "customers"}
-    assert "s3cr3t-pw" not in res.text
-
-    # invalid request: the error must not echo the password either
+def test_db_validation_error_never_echoes_password():
+    # real DB behaviour (guard, sampling, auto-add) is covered in test_ingest.py
     res = client.post("/api/schema/from-db", json={"connection": {"password": "s3cr3t-pw"}, "tables": []})
     assert res.status_code == 422
     assert res.json()["error"]["code"] == "validation_error"
     assert "s3cr3t-pw" not in res.text
-
-
-def test_from_sqlite():
-    res = client.post(
-        "/api/schema/from-sqlite",
-        files={"file": ("demo.sqlite", io.BytesIO(b"x"), "application/octet-stream")},
-        data={"mode": "schema_only", "tables": "invoices"},
-    )
-    assert res.status_code == 200
-    assert FromDbResponse.model_validate(res.json()).auto_added == ["customers"]
 
 
 def test_propose_scenarios():

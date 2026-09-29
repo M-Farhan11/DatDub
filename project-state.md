@@ -34,9 +34,17 @@ synthetic data studio** (see `idea.md`).
   one retry with error feedback, fallback provider, `AIProviderError`), Gemini /
   Groq / schema-aware Mock providers, prompts, `ai/validate.py` (drops invalid
   AI references). `/schema/from-prompt` and `/scenarios/propose` now go through AI.
+- **DONE (F3 + F4):** real `from-csv`, `db/tables`, `from-db`, `from-sqlite` in
+  `app/ingest/`: CSV type/semantic heuristics, PK + FK guessing (names + value
+  overlap), rule inference on CSV (allowed_values, date_order, sum_of_children,
+  lte_parent), profiler (null %, moments, 10-bin histogram, top values for
+  non-PII low-cardinality columns, children-per-parent), Postgres/SQLite
+  introspection with FK parents auto-added, sampling (TABLESAMPLE / random),
+  `db_guard` (Postgres-only, query-param lockdown, SSRF guard with IP pinning via
+  `hostaddr`, read-only txn + 10 s timeout, fixed error messages), privacy-filtered
+  AI enrichment (heuristic fallback when AI is down). QA doc: `Manual Testing/backendtest1.md`.
 - **IN PROGRESS:** —
-- **NEXT:** F3 ingest (CSV + DB + SQLite, payload builder, enrichment),
-  F5 engine hardening (child-table caps, Faker pools, null/outlier), F6 rules, F7 injection
+- **NEXT:** F5 engine hardening (child-table caps, Faker pools, null/outlier), F6 rules, F7 injection
 
 ## Haider (frontend + documents/export)
 
@@ -47,7 +55,7 @@ synthetic data studio** (see `idea.md`).
 
 ## BLOCKED
 
-- None. F0 is done; Haider can integrate against the stubs (run backend with `AI_PROVIDER=mock`).
+- None. F0 and F3 are done; Haider can integrate against the stubs (run backend with `AI_PROVIDER=mock`).
 
 ## KNOWN ISSUES
 
@@ -61,6 +69,8 @@ synthetic data studio** (see `idea.md`).
   `GROQ_MODEL=openai/gpt-oss-120b`); a provider without key + model is skipped (→ mock).
 
 ## Decisions log
+
+- 2026-09-29: F3: ingest caps `row_count_hint` at 1000; key columns become string `id`s (the engine generates keys); self-references/cycles/composite keys are dropped with a note; DB read-only + timeout are set per transaction (not as startup `options`, which Supabase's pooler rejects). New rule: one `Manual Testing/{backend,frontend}test<N>.md` per session for QA.
 
 - 2026-09-29: Contract v1.0: generated PKs are strings (`INV-00001`); dates are `YYYY-MM-DD` strings; `date_order.via_fk` means `before` lives in the FK parent; `ForeignKey.children_distribution` added for the profiler.
 

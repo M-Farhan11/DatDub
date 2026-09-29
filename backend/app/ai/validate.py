@@ -102,7 +102,7 @@ def draft_to_schema(draft: SchemaDraft, source: SourceKind = "prompt") -> tuple[
             notes.append(f"Dropped rule on {dr.table}.{dr.column} ({dr.kind}): {problem}.")
         else:
             schema.rules.append(rule)
-    schema.document_hints = _invoice_hints(schema)
+    schema.document_hints = invoice_hints(schema)
     return schema, notes
 
 
@@ -178,7 +178,7 @@ def _convert_rule(dr: DraftRule, schema: DatasetSchema, rule_id: str) -> tuple[R
     return Rule(id=rule_id, kind=dr.kind, table=dr.table, column=dr.column, params=params, description=dr.description), ""
 
 
-def _invoice_hints(schema: DatasetSchema) -> DocumentHints | None:
+def invoice_hints(schema: DatasetSchema) -> DocumentHints | None:
     """Detect an invoice header → items → party shape so the invoice PDF works."""
     for header in schema.tables:
         if "invoice" not in header.name or "item" in header.name or "line" in header.name:
@@ -196,8 +196,18 @@ def _invoice_hints(schema: DatasetSchema) -> DocumentHints | None:
 # --- SemanticEnrichment -> schema --------------------------------------------
 
 
-def apply_enrichment(schema: DatasetSchema, enrichment: SemanticEnrichment) -> int:
-    """Apply AI column semantics in place. PK/FK columns stay `id`. Returns the number applied."""
+_NUMERIC_SEMANTICS = {"currency_amount", "quantity", "percentage", "generic_number"}
+
+
+def apply_enrichment(schema: DatasetSchema, enrichment: SemanticEnrichment, keep_above: float | None = None) -> int:
+    """Apply AI column semantics in place. Returns the number applied.
+
+    PK/FK columns stay `id`. A semantic type that does not fit the column's
+    data type is ignored. With `keep_above`, columns whose current
+    confidence is at least that value (e.g. confirmed by a value regex)
+    keep their semantic type. PII is only ever added, never removed, and a
+    column that becomes PII loses any sampled category values.
+    """
     applied = 0
     for item in enrichment.columns:
         table = schema.table(item.table)
@@ -206,7 +216,20 @@ def apply_enrichment(schema: DatasetSchema, enrichment: SemanticEnrichment) -> i
             continue
         if col.name == table.primary_key or any(fk.column == col.name for fk in table.foreign_keys):
             continue
-        col.semantic_type, col.pii, col.confidence = item.semantic_type, item.pii, item.confidence
+        if keep_above is not None and col.confidence >= keep_above:
+            continue
+        if item.semantic_type in _NUMERIC_SEMANTICS and col.data_type not in _NUMERIC:
+            continue
+        if col.data_type in _NUMERIC and item.semantic_type not in _NUMERIC_SEMANTICS | {"category", "status"}:
+            continue
+        if item.semantic_type in _TEMPORAL and col.data_type not in _TEMPORAL:
+            continue
+        col.semantic_type, col.confidence = item.semantic_type, item.confidence
+        col.pii = col.pii or item.pii
+        if col.pii:
+            col.allowed_values = None
+            if col.profile is not None:
+                col.profile.top_values = None
         applied += 1
     return applied
 
