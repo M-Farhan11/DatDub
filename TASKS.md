@@ -181,7 +181,7 @@ a password never appears in a response or log (tested).
 > `rules` = CSV rule inference: allowed_values, date_order, sum_of_children,
 > lte_parent). Verified: CSV, SQLite (both modes), guard + error mapping
 > (incl. a real local Postgres auth failure). `tests/test_ingest.py::test_postgres_end_to_end`
-> runs only with `TEST_PG_URL` set; not yet run against Supabase (F8).
+> runs only with `TEST_PG_URL` set; passed against local Postgres 18 (`dat_dub`), not yet against Supabase (F8).
 > Row-count hints are capped at 1000 (the user raises counts in Configure).
 
 ### F4 · Profiler (inside F3 time)
