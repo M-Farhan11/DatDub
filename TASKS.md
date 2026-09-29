@@ -310,51 +310,54 @@ truth, and the report marks them as expected.
 > You can also run the backend locally with `AI_PROVIDER=mock`.
 
 ### H0 · Scaffold (0:00–0:45)
-- [ ] `frontend/`: Vite + React + TS + Tailwind + shadcn/ui; install
+- [x] `frontend/`: Vite + React + TS + Tailwind + shadcn/ui; install
       `@xyflow/react`, `@tanstack/react-table`
-- [ ] App shell: left workspace nav (Tabular / Relational / Documents, matching
+- [x] App shell: left workspace nav (Tabular / Relational / Documents, matching
       the PDF's design) + 5-step stepper: **Source → Schema → Configure → Results → Export**
-- [ ] `src/api/client.ts` (uses `VITE_API_URL`) + `src/api/fixtures/*.json` + fixtures toggle
-- [ ] Global state for the current `DatasetSchema`, config and `dataset_id` (React context or zustand; keep it simple)
+- [x] `src/api/client.ts` (uses `VITE_API_URL`) + `src/api/fixtures/*.ts` (typed against `types.ts`) + fixtures toggle
+- [x] Global state for the current `DatasetSchema`, config and `dataset_id` (React context or zustand; keep it simple)
 
-**Accept:** `npm run dev` shows the shell; `npm run build` passes; pushed.
+**Accept:** `npm run dev` shows the shell; `npm run build` passes; pushed. *(H: all met except pushed — waiting for Haider's OK)*
+
+> **H status 2026-09-29:** `[~]` = built and verified against the real local backend
+> (mock AI) through `src/api/client.ts`; waiting for a browser click-through before `[x]`.
 
 ### H1 · Source step (0:45–1:45)
-- [ ] Tabs: **Prompt** (textarea + example chips) · **CSV** (drag-drop, multi-file) ·
+- [~] Tabs: **Prompt** (textarea + example chips) · **CSV** (drag-drop, multi-file) ·
       **Database** (see below) · **Templates** (E-commerce, Finance cards)
-- [ ] **Database tab**, a 3-step mini-flow:
+- [~] **Database tab**, a 3-step mini-flow:
   1. **Connect:** toggle "Connection string" / "Fields" (host, port, database, user, password) + a SQLite upload option → `POST /api/db/tables`
   2. **Pick tables:** checklist with column count, `~estimated_rows`, FK links; mode toggle "Schema only / Schema + sample"; sample size (default 200, max 1000)
   3. **Extract** → `POST /api/schema/from-db` → show an "auto-added: …" notice if any
   - Credentials live in **React state only** (never `localStorage`) and are re-sent with each call
   - Collapsible help: "Use a read-only user" with the SQL snippet; "Local DBs (localhost) aren't reachable from the hosted app, so use a tunnel or run locally"
   - A "Use demo database" button pre-fills the Supabase read-only demo connection
-- [ ] Configure step shows a "large job" warning above 100k rows
-- [ ] Loading + error states; on success → store the schema → go to the Schema step
+- [~] Configure step shows a "large job" warning above 100k rows
+- [~] Loading + error states; on success → store the schema → go to the Schema step
 
 ### H2 · Schema step (1:45–2:45) — main visual "wow"
-- [ ] React Flow graph: one node per table (columns listed, PK/FK icons),
+- [~] React Flow graph: one node per table (columns listed, PK/FK icons),
       FK edges labelled `1:N`, auto layout (simple left-to-right by FK depth)
-- [ ] Field inspector side panel on column click: type, semantic type,
+- [~] Field inspector side panel on column click: type, semantic type,
       PII badge, AI confidence %, editable semantic type dropdown + PII toggle
-- [ ] Rules list under the graph (human-readable)
+- [~] Rules list under the graph (human-readable)
 
 ### H3 · Configure step (2:45–3:15)
-- [ ] Rows per table (root table count; children derived), seed, null %, outlier %, locale
-- [ ] "Generate" button → `POST /api/generate` → Results
+- [~] Rows per table (root table count; children derived), seed, null %, outlier %, locale
+- [~] "Generate" button → `POST /api/generate` → Results
 
 ### H4 · Results step (3:15–3:30, polish after the checkpoint)
-- [ ] Table tabs + TanStack Table preview (paging via `/datasets/{id}/tables/{t}`)
-- [ ] Quality report cards: overall PASS/FAIL, PK uniqueness %, FK integrity %,
+- [~] Table tabs + TanStack Table preview (paging via `/datasets/{id}/tables/{t}`)
+- [~] Quality report cards: overall PASS/FAIL, PK uniqueness %, FK integrity %,
       rules passed x/y, rows generated, injected scenarios (expected), similarity % if present
 
 ### ✅ CHECKPOINT 1 (3:30–4:00) with Farhan
 
 ### H5 · Scenario Studio UI (4:00–4:45)
-- [ ] In Configure: instruction box ("Add realistic edge cases for testing") →
+- [~] In Configure: instruction box ("Add realistic edge cases for testing") →
       **Propose** → checklist of proposals (title, table, description, count input)
-- [ ] Selected scenarios are sent in `GenerateRequest.scenarios`
-- [ ] Results → **Ground Truth** tab: scenario, table, affected IDs, expected behaviour
+- [~] Selected scenarios are sent in `GenerateRequest.scenarios`
+- [~] Results → **Ground Truth** tab: scenario, table, affected IDs, expected behaviour
 
 ### H6 · Invoice PDF, backend + UI (4:45–5:30)
 - [ ] `backend/app/documents/invoice_pdf.py` (ReportLab): header, billed-to,
@@ -363,7 +366,7 @@ truth, and the report marks them as expected.
 - [ ] `backend/app/api/documents.py`: `GET /api/datasets/{id}/documents/invoices` (list IDs) +
       `GET /api/datasets/{id}/documents/invoices/{invoice_id}.pdf`
 - [ ] `backend/tests/test_documents.py` (generate the finance template → PDF bytes start with `%PDF`)
-- [ ] UI **Documents** tab: invoice picker + `<iframe>` PDF preview
+- [~] UI **Documents** tab: invoice picker + `<iframe>` PDF preview *(UI built; shows "coming soon" while the backend returns 501)*
 
 **Accept:** the invoice total in the PDF equals the sum of its items in the data.
 
@@ -373,14 +376,14 @@ truth, and the report marks them as expected.
       `documents/invoices/*.pdf` (first 20)
 - [ ] `backend/app/api/export.py`: `GET /api/datasets/{id}/export.zip`
 - [ ] `backend/tests/test_export.py`
-- [ ] Export step: download ZIP button + per-table CSV download
+- [~] Export step: download ZIP button + per-table CSV download *(UI built; ZIP shows "coming soon" while the backend returns 501)*
 
 ### H8 · Deploy frontend (6:00–6:45)
 - [ ] Vercel project from `frontend/`, `VITE_API_URL` = the Railway URL
 - [ ] Run the canonical demo on the deployed URLs with Farhan
 
 ### H9 · Polish (anytime there is slack)
-- [ ] Empty states, toasts, disabled buttons while loading, "Load demo" shortcut buttons
+- [~] Empty states, toasts, disabled buttons while loading, "Load demo" shortcut buttons
 
 ---
 
@@ -445,3 +448,4 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 - 2026-09-29 · F · done: reviewed the GPT pre-F7 audit (all 12 findings confirmed and fixed with regression tests); F7 scenario injection + ground truth with per-check expected-violation attribution; F8 seed script + DB rule inference via aggregate queries + UNIQUE constraints; 172 tests green (2 Postgres tests skipped: need credentials); QA `Manual Testing/backendtest4.md` · left: F8 Supabase project + run seed + read-only role (human), run `TEST_PG_SEED_URL` test, F9 deploy · blockers: Supabase account access
 - 2026-09-29 · F · done: Supabase MCP added (`.mcp.json`, shared with H); demo DB seeded on Supabase (2 migrations), read-only `demo_reader` role with RLS + Data API lockdown, security advisor clean · left: set demo_reader password, run from-db against Supabase, F9 deploy · blockers: none
 - 2026-09-29 · F · done: Supabase end-to-end verified (read-only login through the pooler, 10 rules found, generation PASS); fixed low-cardinality text columns (city/country/company) ignoring the sample → similarity 64% → 96% · left: F9 deploy, share the demo URL with H privately · blockers: none
+- 2026-09-29 · H · done: frontend rebuilt from the Stitch references (Vite + React + TS + Tailwind v4 + shadcn/ui + lucide, @xyflow/react, @tanstack/react-table v9): landing page, studio shell (collapsible sidebar, stepper that only unlocks reached steps), all 5 steps (4 source sub-screens incl. 3-step DB flow with auto-added parents, schema graph + rules + column details, configure + edge cases + generating screen, results tabs Checks/Data/Edge cases/Invoices, export with client-side CSV); typed API client + fixtures mode; verified against the local backend (templates, prompt, CSV, SQLite, propose, generate 5k with 3 scenarios, paging, invoice list, 501/404/422 errors all handled); `npm run build` clean; QA `Manual Testing/frontendtest1.md` · left: browser click-through, commit + push (waiting for OK), H6/H7 backend (PDF, ZIP), H8 deploy · blockers: none (`frontend` branch has rewritten copies of main's commits after `git pull --rebase`; run `git reset --keep origin/main` before committing)

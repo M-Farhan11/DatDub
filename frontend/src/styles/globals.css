@@ -1,0 +1,212 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * DatDub design tokens, taken from the Stitch reference files
+ * (references/code1.html = landing, references/code.html = source picker).
+ */
+:root {
+  /* surfaces */
+  --page: #ebf2ff;          /* landing background */
+  --panel: #f3f7ff;         /* header / footer panels */
+  --card: #ffffff;          /* cards, sidebar, top bar */
+  --surface-low: #f2f3ff;   /* studio background, card hover */
+  --surface: #eaedff;
+  --surface-high: #e2e7ff;  /* active nav item */
+  --surface-highest: #d9e2ff;
+  --canvas: #f8faff;        /* schema canvas inside the preview */
+
+  /* text */
+  --ink: #101b34;
+  --ink-muted: #444655;
+  --hint: #757686;
+  --hint-soft: #5f6f94;
+
+  /* lines */
+  --line: #c5c5d7;          /* card and studio borders */
+  --chrome: #c3d1ee;        /* landing header / footer borders */
+
+  /* brand */
+  --primary: #2b47d6;
+  --primary-deep: #002abd;
+  --primary-hover: #334edc;
+  --primary-tint: #dee0ff;
+  --coral: #fd6f4d;         /* rare accent */
+
+  /* status */
+  --pass: #15803d;
+  --fail: #ba1a1a;
+  --expected: #00485b;
+  --cyan: #81d1f0;
+
+  /* shadcn slots */
+  --background: var(--page);
+  --foreground: var(--ink);
+  --card-foreground: var(--ink);
+  --popover: var(--card);
+  --popover-foreground: var(--ink);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-low);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--surface-high);
+  --accent-foreground: var(--primary);
+  --destructive: var(--fail);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--primary);
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Space Grotesk", "Inter", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-page: var(--page);
+  --color-panel: var(--panel);
+  --color-card: var(--card);
+  --color-surface-low: var(--surface-low);
+  --color-surface: var(--surface);
+  --color-surface-high: var(--surface-high);
+  --color-surface-highest: var(--surface-highest);
+  --color-canvas: var(--canvas);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-hint: var(--hint);
+  --color-hint-soft: var(--hint-soft);
+  --color-line: var(--line);
+  --color-chrome: var(--chrome);
+  --color-primary: var(--primary);
+  --color-primary-deep: var(--primary-deep);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-tint: var(--primary-tint);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-coral: var(--coral);
+  --color-pass: var(--pass);
+  --color-fail: var(--fail);
+  --color-expected: var(--expected);
+  --color-cyan: var(--cyan);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* radius: cards 12px, small elements 8px, buttons pill */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  /* type scale from the reference files */
+  --text-display: 40px;
+  --text-display--line-height: 48px;
+  --text-display--letter-spacing: -0.03em;
+  --text-display-xl: 56px;
+  --text-display-xl--line-height: 64px;
+  --text-display-xl--letter-spacing: -0.03em;
+  --text-headline-xl: 32px;
+  --text-headline-xl--line-height: 40px;
+  --text-headline-xl--letter-spacing: -0.02em;
+  --text-headline-lg: 24px;
+  --text-headline-lg--line-height: 32px;
+  --text-headline-md: 20px;
+  --text-headline-md--line-height: 28px;
+  --text-headline-sm: 16px;
+  --text-headline-sm--line-height: 24px;
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 26px;
+  --text-body-md: 14px;
+  --text-body-md--line-height: 22px;
+  --text-body-sm: 12px;
+  --text-body-sm--line-height: 18px;
+  --text-label-lg: 14px;
+  --text-label-lg--line-height: 20px;
+  --text-label-md: 12px;
+  --text-label-md--line-height: 16px;
+  --text-code-md: 13px;
+  --text-code-md--line-height: 20px;
+  --text-code-sm: 11px;
+  --text-code-sm--line-height: 16px;
+
+  /* spacing names from the reference files */
+  --spacing-gutter: 1rem;
+  --spacing-gutter-lg: 1.5rem;
+  --spacing-margin: 1rem;
+  --spacing-margin-md: 1.5rem;
+  --spacing-margin-lg: 2.5rem;
+
+  --animate-drift-a: drift-a 24s ease-in-out infinite alternate;
+  --animate-drift-b: drift-b 30s ease-in-out infinite alternate;
+
+  @keyframes drift-a {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(48px, -32px) scale(1.06); }
+    100% { transform: translate(-36px, 28px) scale(0.96); }
+  }
+  @keyframes drift-b {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-44px, 30px) scale(0.95); }
+    100% { transform: translate(34px, -26px) scale(1.05); }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* very subtle film grain for the hero */
+  .grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.06 0 0 0 0 0.1 0 0 0 0 0.2 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
