@@ -13,7 +13,7 @@ synthetic data studio** (see `idea.md`).
 | Milestone | Status |
 |---|---|
 | MVP locked + work split | DONE |
-| H0 contract freeze (F0) + frontend scaffold (H0) | TODO |
+| H0 contract freeze (F0) + frontend scaffold (H0) | F0 DONE · H0 TODO |
 | Checkpoint 1: template → generate → preview → report | TODO |
 | Checkpoint 2: DB connect, scenarios, PDF, ZIP | TODO |
 | Deployed demo (Vercel + Railway + Supabase) | TODO |
@@ -24,9 +24,15 @@ synthetic data studio** (see `idea.md`).
 - **DONE:** Phase 0 bootstrap; MVP lock; `CLAUDE.md` (ownership + agent
   orchestration rules); `TASKS.md`; `idea.md` / `architecture.md` / `design.md`;
   `docs/api-contract.md` draft v0.1
+- **DONE (F0):** contract models (`backend/app/schemas/`), API contract v1.0
+  frozen, `frontend/src/api/types.ts`, in-memory store (TTL 60 min, max 20,
+  unguessable IDs), all 14 endpoints (real: health, templates, generate,
+  table paging, invoice list; stubs: schema inference, db, scenarios),
+  CORS + `/api` prefix + `{"error":{code,message}}` envelope, deps pinned.
+  **F2:** finance + ecommerce templates. First-cut generator + PK/FK validator.
 - **IN PROGRESS:** —
-- **NEXT:** F0: git init + push, contract models, `types.ts`, stub routers,
-  dataset store, deps
+- **NEXT:** F1 AI layer (Gemini/Groq/Mock structured output), then F3 ingest,
+  F5 engine hardening (child-table caps, Faker pools, null/outlier), F6 rules
 
 ## Haider (frontend + documents/export)
 
@@ -37,15 +43,17 @@ synthetic data studio** (see `idea.md`).
 
 ## BLOCKED
 
-- Haider's real API integration is blocked until F0 is pushed. Use fixtures mode meanwhile.
+- None. F0 is done; Haider can integrate against the stubs (run backend with `AI_PROVIDER=mock`).
 
 ## KNOWN ISSUES
 
 - The system default Python is 3.14 (no `pydantic-core` wheels). Create the
   backend venv with Python 3.12: `py -3.12 -m venv .venv`.
-- Git is initialized locally (`main`, first commit). No remote yet, so push is still pending.
+- `google-genai` pulls pydantic 2.13 (pinned in requirements).
 
 ## Decisions log
+
+- 2026-09-29: Contract v1.0: generated PKs are strings (`INV-00001`); dates are `YYYY-MM-DD` strings; `date_order.via_fk` means `before` lives in the FK parent; `ForeignKey.children_distribution` added for the profiler.
 
 - 2026-09-29: No platform DB; in-memory dataset store. Supabase is used only as
   the demo *source* DB (reachable from Railway, unlike a local DB).

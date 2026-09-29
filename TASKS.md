@@ -90,26 +90,32 @@ invoice PDF → ground truth tab → download ZIP.
 
 ### F0 · Contract freeze and repo setup (0:00–0:45) — BLOCKS HAIDER, do first
 - [x] `git init` (branch `main`) + first commit (docs + bootstrap)
-- [ ] Create GitHub repo, push, add Haider as a collaborator
-- [ ] Pydantic contract models in `backend/app/schemas/`: `DatasetSchema`,
+- [x] Create GitHub repo, push, add Haider as a collaborator
+- [x] Pydantic contract models in `backend/app/schemas/`: `DatasetSchema`,
       `TableSchema`, `ColumnSchema`, `ForeignKey`, `Rule`, `ColumnProfile`,
       `GenerateRequest`, `GenerateResponse`, `ScenarioProposal`,
       `ScenarioSelection`, `ValidationReport`, `GroundTruthEntry`, `DocumentHints`
-- [ ] `docs/api-contract.md`: fill in the exact JSON for each endpoint
-- [ ] `frontend/src/api/types.ts`: a TS mirror of the contract models
-- [ ] `backend/app/engine/store.py`: in-memory `save_dataset` / `get_dataset`
-- [ ] Stub routers for all endpoints (returning Mock/fixture data), including
+- [x] `docs/api-contract.md`: fill in the exact JSON for each endpoint
+- [x] `frontend/src/api/types.ts`: a TS mirror of the contract models
+- [x] `backend/app/engine/store.py`: in-memory `save_dataset` / `get_dataset`
+- [x] Stub routers for all endpoints (returning Mock/fixture data), including
       `api/documents.py` + `api/export.py` stubs (then handed to H)
-- [ ] `main.py`: register all routers, CORS (`CORS_ORIGINS` env), `/api` prefix
-- [ ] `requirements.txt`: `pandas numpy faker sqlalchemy psycopg[binary] python-multipart google-genai reportlab`
-- [ ] `.env.example`: `GEMINI_MODEL`, `GROQ_MODEL`, `CORS_ORIGINS`,
+- [x] `main.py`: register all routers, CORS (`CORS_ORIGINS` env), `/api` prefix
+- [x] `requirements.txt`: `pandas numpy faker sqlalchemy psycopg[binary] python-multipart google-genai reportlab`
+- [x] `.env.example`: `GEMINI_MODEL`, `GROQ_MODEL`, `CORS_ORIGINS`,
       `MAX_ROWS_PER_TABLE=100000`, `MAX_DATASETS=20`, `DATASET_TTL_MINUTES=60`,
       `ALLOW_PRIVATE_DB_HOSTS=true` (local; `false` on Railway),
       `DEFAULT_SAMPLE_LIMIT=200`, `MAX_SAMPLE_LIMIT=1000`
-- [ ] Store: TTL 60 min + max 20 datasets (oldest evicted); `dataset_id` = random, unguessable (`secrets.token_urlsafe`)
+- [x] Store: TTL 60 min + max 20 datasets (oldest evicted); `dataset_id` = random, unguessable (`secrets.token_urlsafe`)
 
 **Accept:** `uvicorn` runs; `/docs` shows every endpoint; each stub returns
 contract-valid JSON; `pytest` is green; pushed to `main`.
+
+> F0 notes: `/api/generate` already runs a first-cut engine
+> (`engine/generator.py`: FK-correct, seeded, applies date_order /
+> sum_of_children / lte_parent) and `validation/checks.py` does PK + FK
+> checks, so Haider gets real data for PDF/ZIP. F5/F6 harden them. Known
+> gap for F5: child tables are not capped yet (100k customers → ~1.5M items).
 
 ### F1 · AI layer (0:45–1:30)
 - [ ] `AIService.generate_structured(prompt, response_model)`: validate with
@@ -123,12 +129,12 @@ contract-valid JSON; `pytest` is green; pushed to `main`.
 object; invalid JSON triggers retry/fallback (tested with a fake provider).
 
 ### F2 · Templates (1:30–1:50)
-- [ ] `ecommerce`: customers → orders → order_items, orders → payments, with rules
+- [x] `ecommerce`: customers → orders → order_items, orders → payments, with rules
       (`sum_of_children` order.total, `date_order` created_at ≤ order_date ≤ paid_at,
       `lte_parent` payment.amount ≤ order.total, `allowed_values` status)
-- [ ] `finance`: customers → invoices → invoice_items, invoices → payments, with
+- [x] `finance`: customers → invoices → invoice_items, invoices → payments, with
       the same kinds of rules plus `document_hints` for the invoice PDF
-- [ ] `GET /api/templates`, `GET /api/templates/{id}`
+- [x] `GET /api/templates`, `GET /api/templates/{id}`
 
 **Accept:** both templates load and pass contract validation, with no AI involved.
 
@@ -311,7 +317,7 @@ truth, and the report marks them as expected.
 
 Format: `- [ ] YYYY-MM-DD HH:MM · FROM → TO · what · why`
 
-- (none yet)
+- [ ] 2026-09-29 · F → H · `backend/app/api/documents.py` + `export.py` stubs are in place (invoice list is real; PDF/ZIP return `501 not_implemented`). They are yours from now on. Read data only via `app.engine.store.get_dataset()`; rows → JSON via `app.engine.generator.to_records(df)`.
 
 ---
 
@@ -342,3 +348,4 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 
 - 2026-09-29 · F · done: MVP locked, work split, CLAUDE.md rules (ownership + agent orchestration), TASKS.md, docs updated · left: F0 contract freeze · blockers: none
 - 2026-09-29 · F · done: clarified DB extraction (3-step list → pick → extract, 200/1000 sample, no rows to AI), scale (1–2 AI calls/job, vectorized engine, 100k default / 500k ceiling), external DB connect + SSRF guard, no-auth access model (TTL store); updated contract, architecture, F0/F3/F5/H1, backlog · left: F0 · blockers: none
+- 2026-09-29 · F · done: F0 (contract models, API contract v1.0 frozen, types.ts, in-memory store with TTL/max, all routers + stubs, CORS + `/api` prefix + error envelope, deps, .env.example, 18 tests green) + F2 templates (finance, ecommerce) + first-cut generator/validator · left: F1 AI layer, F3–F7 · blockers: none
