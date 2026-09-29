@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Env files (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Test / cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Build artifacts
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Node / frontend
+node_modules/
+frontend/dist/
+*.local
+
+# Local databases (demo fixtures must be force-added)
+*.db
+*.sqlite
+*.sqlite3

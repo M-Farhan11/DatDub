@@ -1,0 +1,308 @@
+# TASKS — Shared Work Tracker
+
+> **Read this first every session.** It is the single source of truth for
+> who owns what, what is done and what is left.
+> Farhan = **F** (backend lead) · Haider = **H** (frontend lead + 2 backend modules)
+> Presentation is handled by the 3rd member and is not tracked here.
+
+Status legend: `[ ]` todo · `[~]` in progress · `[x]` done (run + verified) · `[!]` blocked
+
+---
+
+## 1. Sync protocol (both of you, every session)
+
+1. **Start:** `git pull --rebase`, read this file, and check **Requests** (section 7).
+2. **Work only on your own tasks and your own files** (section 2).
+3. Need something from the other person? Add it to **Requests** and do not
+   edit their files.
+4. **Before pushing:** run `pytest` (backend) and/or `npm run build`
+   (frontend), then `git pull --rebase`, then push. Commit prefix `[F]` / `[H]`.
+5. **End of session:**
+   - update your task checkboxes below,
+   - add one line to the **Session Log** (section 9),
+   - update `project-state.md`,
+   - commit and push.
+6. Tell Claude Code at the start: *"I am Farhan"* or *"I am Haider"*.
+
+---
+
+## 2. File ownership (never edit the other person's files)
+
+| Path | Owner |
+|---|---|
+| `backend/app/ai/**` | F |
+| `backend/app/schemas/**` (API contract models) | F |
+| `backend/app/ingest/**` (CSV, prompt, DB/SQLite inference, profiler) | F |
+| `backend/app/engine/**` (generator, dataset store) | F |
+| `backend/app/validation/**` | F |
+| `backend/app/scenarios/**` | F |
+| `backend/app/templates/**` | F |
+| `backend/app/api/{templates,schema,scenarios,generate,datasets}.py` | F |
+| `backend/app/main.py`, `backend/app/core/**`, `backend/requirements.txt`, `backend/.env.example` | F |
+| `backend/tests/**` except the two Haider files below | F |
+| `scripts/seed_demo_db.sql` | F |
+| `docs/api-contract.md`, `frontend/src/api/types.ts` | F (changes need both to agree) |
+| `backend/app/documents/**` (invoice PDF) | **H** |
+| `backend/app/export/**` (ZIP export) | **H** |
+| `backend/app/api/documents.py`, `backend/app/api/export.py` | **H** |
+| `backend/tests/test_documents.py`, `backend/tests/test_export.py` | **H** |
+| `frontend/**` (everything except `src/api/types.ts`) | **H** |
+| `TASKS.md`, `project-state.md` | both (only your own sections + log lines) |
+| `CLAUDE.md`, `idea.md`, `architecture.md`, `design.md`, `roadmap.md` | F (H via Requests) |
+
+**Shared interface between F and H in the backend** (F provides it in F0):
+
+```python
+# backend/app/engine/store.py
+def get_dataset(dataset_id: str) -> GeneratedDataset  # raises DatasetNotFound
+# GeneratedDataset: dataset_id, schema: DatasetSchema,
+#   tables: dict[str, pandas.DataFrame], report: ValidationReport,
+#   ground_truth: list[GroundTruthEntry]
+```
+
+H's documents/export code **only reads** through `get_dataset()`. It never
+imports engine internals.
+
+---
+
+## 3. Timeline (8 hours)
+
+| Time | Block | Goal |
+|---|---|---|
+| 0:00–0:45 | **H0 Contract freeze** | Contract, stubs, scaffold. Both unblocked. |
+| 0:45–3:30 | **Core** | Template/CSV/prompt → schema → generate → preview → report |
+| 3:30–4:00 | **Checkpoint 1** | End-to-end on real backend, merged on `main` |
+| 4:00–6:00 | **Differentiators** | DB connect (Supabase), scenarios + ground truth, invoice PDF, ZIP |
+| 6:00–6:45 | **Integration + deploy** | Railway + Vercel, canonical demo on deployed URLs |
+| 6:45–7:30 | **Stretch** | Only if everything above is `[x]` |
+| 7:30–8:00 | **Freeze** | Bug fixes only; rehearse the demo with the presenter |
+
+**Canonical demo (everything serves this):**
+Connect Supabase DB → schema graph appears → "Add realistic edge cases for
+testing" → tick scenarios → generate 5,000 rows → quality report (integrity
+100%, rules pass, N injected-as-expected, similarity %) → open synthetic
+invoice PDF → ground truth tab → download ZIP.
+**Offline fallback:** Finance template + `AI_PROVIDER=mock`.
+
+---
+
+## 4. FARHAN (F): Backend core
+
+### F0 · Contract freeze and repo setup (0:00–0:45) — BLOCKS HAIDER, do first
+- [x] `git init` (branch `main`) + first commit (docs + bootstrap)
+- [ ] Create GitHub repo, push, add Haider as a collaborator
+- [ ] Pydantic contract models in `backend/app/schemas/`: `DatasetSchema`,
+      `TableSchema`, `ColumnSchema`, `ForeignKey`, `Rule`, `ColumnProfile`,
+      `GenerateRequest`, `GenerateResponse`, `ScenarioProposal`,
+      `ScenarioSelection`, `ValidationReport`, `GroundTruthEntry`, `DocumentHints`
+- [ ] `docs/api-contract.md`: fill in the exact JSON for each endpoint
+- [ ] `frontend/src/api/types.ts`: a TS mirror of the contract models
+- [ ] `backend/app/engine/store.py`: in-memory `save_dataset` / `get_dataset`
+- [ ] Stub routers for all endpoints (returning Mock/fixture data), including
+      `api/documents.py` + `api/export.py` stubs (then handed to H)
+- [ ] `main.py`: register all routers, CORS (`CORS_ORIGINS` env), `/api` prefix
+- [ ] `requirements.txt`: `pandas numpy faker sqlalchemy psycopg[binary] python-multipart google-genai reportlab`
+- [ ] `.env.example`: `GEMINI_MODEL`, `GROQ_MODEL`, `CORS_ORIGINS`, `MAX_ROWS_PER_TABLE`
+
+**Accept:** `uvicorn` runs; `/docs` shows every endpoint; each stub returns
+contract-valid JSON; `pytest` is green; pushed to `main`.
+
+### F1 · AI layer (0:45–1:30)
+- [ ] `AIService.generate_structured(prompt, response_model)`: validate with
+      Pydantic, retry once on invalid output, then fallback provider, then `AIProviderError`
+- [ ] `GeminiProvider` (google-genai, structured output, model from env)
+- [ ] `GroqProvider` (httpx → OpenAI-compatible endpoint, JSON schema mode, model from env)
+- [ ] `MockProvider`: canned valid objects for `SchemaDraft`, `SemanticEnrichment`, `ScenarioPlan`
+- [ ] `backend/app/ai/prompts.py`: prompt → schema, column semantics, scenario proposals
+
+**Accept:** tests pass with mock; with a real key, one call returns a valid
+object; invalid JSON triggers retry/fallback (tested with a fake provider).
+
+### F2 · Templates (1:30–1:50)
+- [ ] `ecommerce`: customers → orders → order_items, orders → payments, with rules
+      (`sum_of_children` order.total, `date_order` created_at ≤ order_date ≤ paid_at,
+      `lte_parent` payment.amount ≤ order.total, `allowed_values` status)
+- [ ] `finance`: customers → invoices → invoice_items, invoices → payments, with
+      the same kinds of rules plus `document_hints` for the invoice PDF
+- [ ] `GET /api/templates`, `GET /api/templates/{id}`
+
+**Accept:** both templates load and pass contract validation, with no AI involved.
+
+### F3 · Ingest / schema inference (1:50–2:40)
+- [ ] CSV (1..n files): pandas dtype + regex heuristics (email, phone, date,
+      id, currency) + PK guess + FK guess across files (`<table>_id` naming)
+      + AI semantic enrichment on **metadata only**
+- [ ] Prompt → schema via AI; validate (unique names, FK targets exist, rules reference real columns)
+- [ ] DB: `POST /api/schema/from-db` (Postgres URL) + `POST /api/schema/from-sqlite`
+      (upload) via SQLAlchemy `inspect()`. Read-only transaction,
+      `statement_timeout`, `LIMIT` ≤ 500 per table, URL never logged or returned.
+      Modes: `schema_only` | `schema_and_sample`
+
+**Accept:** each input returns a valid `DatasetSchema`; a column profile is
+attached when sample rows exist; bad URL/file → a clean 4xx with a message.
+
+### F4 · Profiler (inside F3 time)
+- [ ] Per column: null %, min/max/mean/std, 10-bin histogram, top category
+      frequencies, uniqueness ratio. Per FK: children-per-parent distribution.
+
+### F5 · Generation engine (2:40–3:30) — the heart of the product
+- [ ] Topological order over FKs; parents first
+- [ ] Column generators by semantic type (Faker, locale-aware), numerics from
+      profile or rule ranges, categoricals from profile weights / `allowed_values`
+- [ ] Child counts per parent from the profile distribution or a default Poisson
+- [ ] Rules enforced: derived totals computed from children, dates ordered, `lte_parent` capped
+- [ ] Null rate + outlier rate (nullable / numeric columns only)
+- [ ] Seed → fully reproducible; `MAX_ROWS_PER_TABLE` cap (10k)
+- [ ] `POST /api/generate` saves to the store and returns previews (50 rows/table) + report
+- [ ] `GET /api/datasets/{id}/tables/{t}?offset&limit`
+
+**Accept:** finance template at 5,000 rows generates in under 10 s; the same
+seed gives identical output; FK integrity is 100%.
+
+### F6 · Validation report (inside Core / by Checkpoint 1)
+- [ ] PK uniqueness, FK integrity, type/nullability, per-rule pass/fail counts
+- [ ] Injected scenario violations counted as **expected**, not failures
+- [ ] Similarity vs profile when a sample exists (category TVD, numeric
+      histogram overlap → 0–100%)
+
+**Accept:** a clean generation reports all PASS; an intentionally broken row
+shows up as FAIL in a unit test.
+
+### ✅ CHECKPOINT 1 (3:30–4:00) with Haider: template → generate → preview → report on the real backend
+
+### F7 · Scenario Studio backend (4:00–5:00)
+- [ ] Catalogue: `null_burst`, `extreme_value`, `duplicate_record`,
+      `boundary_date`, `rule_violation`
+- [ ] `POST /api/scenarios/propose {schema, instruction}` → AI proposals,
+      validated against the schema (invalid ones dropped)
+- [ ] Injection after generation + `GroundTruthEntry` per scenario
+      (`scenario`, `table`, `affected_ids`, `description`, `expected_behavior`)
+
+**Accept:** selecting 3 scenarios gives exactly those records in ground
+truth, and the report marks them as expected.
+
+### F8 · Supabase demo source DB (5:00–5:40)
+- [ ] `scripts/seed_demo_db.sql`: finance/e-commerce tables, ~300 rows, a few natural edge cases
+- [ ] Create a Supabase project, run the seed, add a **read-only** role for the demo
+- [ ] Verify `from-db` (both modes) against Supabase and a local Postgres
+
+### F9 · Deploy backend (6:00–6:45)
+- [ ] Railway service from `backend/`, env vars set, CORS includes the Vercel URL
+- [ ] Run the canonical demo against the deployed URL
+
+---
+
+## 5. HAIDER (H): Frontend + documents/export backend modules
+
+> Until Farhan's endpoints are real, build against **fixtures mode**
+> (`VITE_USE_FIXTURES=true`) using JSON that matches `docs/api-contract.md`.
+> You can also run the backend locally with `AI_PROVIDER=mock`.
+
+### H0 · Scaffold (0:00–0:45)
+- [ ] `frontend/`: Vite + React + TS + Tailwind + shadcn/ui; install
+      `@xyflow/react`, `@tanstack/react-table`
+- [ ] App shell: left workspace nav (Tabular / Relational / Documents, matching
+      the PDF's design) + 5-step stepper: **Source → Schema → Configure → Results → Export**
+- [ ] `src/api/client.ts` (uses `VITE_API_URL`) + `src/api/fixtures/*.json` + fixtures toggle
+- [ ] Global state for the current `DatasetSchema`, config and `dataset_id` (React context or zustand; keep it simple)
+
+**Accept:** `npm run dev` shows the shell; `npm run build` passes; pushed.
+
+### H1 · Source step (0:45–1:45)
+- [ ] Tabs: **Prompt** (textarea + example chips) · **CSV** (drag-drop, multi-file) ·
+      **Database** (Postgres URL field + SQLite upload + "Schema only / Schema + sample" toggle) ·
+      **Templates** (E-commerce, Finance cards)
+- [ ] Loading + error states; on success → store the schema → go to the Schema step
+
+### H2 · Schema step (1:45–2:45) — main visual "wow"
+- [ ] React Flow graph: one node per table (columns listed, PK/FK icons),
+      FK edges labelled `1:N`, auto layout (simple left-to-right by FK depth)
+- [ ] Field inspector side panel on column click: type, semantic type,
+      PII badge, AI confidence %, editable semantic type dropdown + PII toggle
+- [ ] Rules list under the graph (human-readable)
+
+### H3 · Configure step (2:45–3:15)
+- [ ] Rows per table (root table count; children derived), seed, null %, outlier %, locale
+- [ ] "Generate" button → `POST /api/generate` → Results
+
+### H4 · Results step (3:15–3:30, polish after the checkpoint)
+- [ ] Table tabs + TanStack Table preview (paging via `/datasets/{id}/tables/{t}`)
+- [ ] Quality report cards: overall PASS/FAIL, PK uniqueness %, FK integrity %,
+      rules passed x/y, rows generated, injected scenarios (expected), similarity % if present
+
+### ✅ CHECKPOINT 1 (3:30–4:00) with Farhan
+
+### H5 · Scenario Studio UI (4:00–4:45)
+- [ ] In Configure: instruction box ("Add realistic edge cases for testing") →
+      **Propose** → checklist of proposals (title, table, description, count input)
+- [ ] Selected scenarios are sent in `GenerateRequest.scenarios`
+- [ ] Results → **Ground Truth** tab: scenario, table, affected IDs, expected behaviour
+
+### H6 · Invoice PDF, backend + UI (4:45–5:30)
+- [ ] `backend/app/documents/invoice_pdf.py` (ReportLab): header, billed-to,
+      line items, tax, total, matching the PDF's invoice design; uses
+      `schema.document_hints` to map the invoice / item / customer tables
+- [ ] `backend/app/api/documents.py`: `GET /api/datasets/{id}/documents/invoices` (list IDs) +
+      `GET /api/datasets/{id}/documents/invoices/{invoice_id}.pdf`
+- [ ] `backend/tests/test_documents.py` (generate the finance template → PDF bytes start with `%PDF`)
+- [ ] UI **Documents** tab: invoice picker + `<iframe>` PDF preview
+
+**Accept:** the invoice total in the PDF equals the sum of its items in the data.
+
+### H7 · ZIP export, backend + UI (5:30–6:00)
+- [ ] `backend/app/export/zip_export.py`: `tables/*.csv`, `tables/*.json`,
+      `schema.json`, `validation_report.json`, `ground_truth.json`,
+      `documents/invoices/*.pdf` (first 20)
+- [ ] `backend/app/api/export.py`: `GET /api/datasets/{id}/export.zip`
+- [ ] `backend/tests/test_export.py`
+- [ ] Export step: download ZIP button + per-table CSV download
+
+### H8 · Deploy frontend (6:00–6:45)
+- [ ] Vercel project from `frontend/`, `VITE_API_URL` = the Railway URL
+- [ ] Run the canonical demo on the deployed URLs with Farhan
+
+### H9 · Polish (anytime there is slack)
+- [ ] Empty states, toasts, disabled buttons while loading, "Load demo" shortcut buttons
+
+---
+
+## 6. Integration checkpoints (both)
+
+- [ ] **Checkpoint 1 (3:30):** template → generate → preview → report, real backend
+- [ ] **Checkpoint 2 (6:00):** DB connect → scenarios → PDF → ZIP, real backend
+- [ ] **Deployed demo (6:45):** canonical demo on Vercel + Railway + Supabase
+- [ ] **Freeze (7:30):** tag `demo`, no new features
+
+---
+
+## 7. Requests (cross-owner changes, contract changes, new deps)
+
+Format: `- [ ] YYYY-MM-DD HH:MM · FROM → TO · what · why`
+
+- (none yet)
+
+---
+
+## 8. Enhancements backlog (ONLY after all MUST-HAVE tasks are `[x]`)
+
+Priority order. Claim one by writing your initial next to it.
+
+1. [ ] Record inspector: click a customer → follow FK → orders → payments (H, F: endpoint)
+2. [ ] Similarity charts, synthetic vs sample histograms (Recharts) (H)
+3. [ ] Natural-language rule box → AI maps it to the rule catalogue (F + H)
+4. [ ] Bank statement document with running balance + CSV (H backend, F data)
+5. [ ] SQL `INSERT` export in the ZIP (H)
+6. [ ] N:N junction-table cardinality (F)
+7. [ ] Column privacy controls: mask/hash values learned from the sample (F + H)
+8. [ ] SDMetrics diagnostics; saved projects in Supabase (F)
+
+**Cut (do not build):** auth/RBAC, SDV training, differential-privacy claims,
+MySQL/MSSQL/Mongo, GL/TB/SOCI/SOFP, Redis/Celery/Docker/CI, AI-generated rows.
+
+---
+
+## 9. Session Log (append one line per session, newest at the bottom)
+
+Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
+
+- 2026-09-29 · F · done: MVP locked, work split, CLAUDE.md rules (ownership + agent orchestration), TASKS.md, docs updated · left: F0 contract freeze · blockers: none
