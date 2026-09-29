@@ -9,6 +9,7 @@ import io
 import re
 
 import pandas as pd
+from starlette.concurrency import run_in_threadpool
 
 from app.core.exceptions import AppError
 from app.ingest.build import RawTable, column_from_values, finalize
@@ -35,19 +36,24 @@ async def ingest_csv(files: list[tuple[str, bytes]]) -> tuple[DatasetSchema, lis
     if len(files) > MAX_FILES:
         raise CsvError(f"Upload at most {MAX_FILES} CSV files at once.")
 
+    # parsing, profiling and rule inference are CPU work: keep them off the event loop
+    frames, schema, notes = await run_in_threadpool(_parse, files)
+    notes += await enrich_schema(schema)
+    schema.rules = await run_in_threadpool(infer_rules, schema, frames)
+    frames.clear()
+    if schema.rules:
+        notes.append(f"Found {len(schema.rules)} rule(s) that hold for every uploaded row.")
+    return schema, notes
+
+
+def _parse(files: list[tuple[str, bytes]]) -> tuple[dict[str, pd.DataFrame], DatasetSchema, list[str]]:
     frames: dict[str, pd.DataFrame] = {}
     for filename, content in files:
         name = _table_name(filename, frames)
         frames[name] = _read(filename, content)
-
     raw_tables, notes = _raw_tables(frames)
     schema, build_notes = finalize(raw_tables, "csv", _dataset_name(frames))
-    notes += build_notes
-    notes += await enrich_schema(schema)
-    schema.rules = infer_rules(schema, frames)
-    if schema.rules:
-        notes.append(f"Found {len(schema.rules)} rule(s) that hold for every uploaded row.")
-    return schema, notes
+    return frames, schema, notes + build_notes
 
 
 def _read(filename: str, content: bytes) -> pd.DataFrame:

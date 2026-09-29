@@ -17,6 +17,7 @@ from app.schemas.dataset import (
     TableSchema,
 )
 from app.schemas.report import ScenarioProposal
+from app.validation.schema_check import proposal_problem, rule_problem
 
 _NUMERIC = {"integer", "float", "decimal"}
 _TEMPORAL = {"date", "datetime"}
@@ -175,7 +176,9 @@ def _convert_rule(dr: DraftRule, schema: DatasetSchema, rule_id: str) -> tuple[R
             return None, "parent table/column is not linked by a foreign key"
         params = {"parent_table": dr.parent_table, "parent_column": dr.parent_column}
 
-    return Rule(id=rule_id, kind=dr.kind, table=dr.table, column=dr.column, params=params, description=dr.description), ""
+    rule = Rule(id=rule_id, kind=dr.kind, table=dr.table, column=dr.column, params=params, description=dr.description)
+    problem = rule_problem(rule, schema)  # the same check /generate runs (e.g. sums over text columns)
+    return (None, problem) if problem else (rule, "")
 
 
 def invoice_hints(schema: DatasetSchema) -> DocumentHints | None:
@@ -238,36 +241,25 @@ def apply_enrichment(schema: DatasetSchema, enrichment: SemanticEnrichment, keep
 
 
 def validate_proposals(plan: ScenarioPlan, schema: DatasetSchema) -> list[ScenarioProposal]:
-    """Keep only proposals whose references exist and fit their kind."""
+    """Keep only proposals whose references exist and fit their kind (the
+    same check `/generate` runs on the selected scenarios)."""
     rule_ids = {r.id: r for r in schema.rules}
     proposals: list[ScenarioProposal] = []
     for p in plan.proposals:
-        table = schema.table(p.table)
-        if table is None:
-            continue
-        col = _col(schema, p.table, p.column) if p.column else None
-        if p.kind == "null_burst" and not (col and col.name != table.primary_key):
-            continue
-        if p.kind == "extreme_value" and not (col and col.data_type in _NUMERIC):
-            continue
-        if p.kind == "boundary_date" and not (col and col.data_type in _TEMPORAL):
-            continue
-        if p.kind == "rule_violation":
-            rule = rule_ids.get(p.rule_id or "")
-            if rule is None or rule.table != p.table:
-                continue
-            col = _col(schema, rule.table, rule.column)
-        proposals.append(
-            ScenarioProposal(
-                id=f"s{len(proposals) + 1}",
-                kind=p.kind,
-                table=p.table,
-                column=col.name if col else None,
-                rule_id=p.rule_id if p.kind == "rule_violation" else None,
-                title=p.title,
-                suggested_count=p.suggested_count,
-                description=p.description,
-                expected_behavior=p.expected_behavior,
-            )
+        column = p.column if p.kind in ("null_burst", "extreme_value", "boundary_date") else None
+        if p.kind == "rule_violation" and p.rule_id in rule_ids:
+            column = rule_ids[p.rule_id].column
+        proposal = ScenarioProposal(
+            id=f"s{len(proposals) + 1}",
+            kind=p.kind,
+            table=p.table,
+            column=column,
+            rule_id=p.rule_id if p.kind == "rule_violation" else None,
+            title=p.title,
+            suggested_count=p.suggested_count,
+            description=p.description,
+            expected_behavior=p.expected_behavior,
         )
+        if proposal_problem(proposal, schema) is None:
+            proposals.append(proposal)
     return proposals

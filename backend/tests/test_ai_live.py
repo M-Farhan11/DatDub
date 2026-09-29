@@ -1,12 +1,16 @@
-"""Live AI smoke tests. Skipped unless the provider's key + model are set in .env.
+"""Live AI smoke tests. Opt-in: skipped unless RUN_LIVE_AI=1 is set in the
+environment (and the provider's key + model are set in .env), so a plain
+`pytest` never calls a paid API.
 
 Each test makes ONE real call and checks that it returns a valid object.
 Rate limits / overload on the provider side (HTTP 429 / 503) are reported
 as skips with the reason: they are quota issues, not code bugs. Invalid
 output still fails.
 
-Run: pytest tests/test_ai_live.py -v -rs
+Run (PowerShell): $env:RUN_LIVE_AI = "1"; pytest tests/test_ai_live.py -v -rs
 """
+
+import os
 
 import httpx
 import pytest
@@ -18,6 +22,8 @@ from app.ai.service import build_provider
 from app.ai.validate import draft_to_schema, validate_proposals
 from app.core.config import Settings
 from app.templates import get_template
+
+pytestmark = pytest.mark.skipif(os.environ.get("RUN_LIVE_AI") != "1", reason="live AI tests are opt-in: set RUN_LIVE_AI=1")
 
 SETTINGS = Settings()
 TRANSIENT = {429, 503}

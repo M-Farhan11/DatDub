@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     max_rows_per_table: int = 100_000
+    # rows × columns over all tables of one request, and over all stored datasets
+    max_total_cells: int = 8_000_000
+    max_store_cells: int = 30_000_000
+    max_concurrent_generations: int = 2
     max_datasets: int = 20
     dataset_ttl_minutes: int = 60
 

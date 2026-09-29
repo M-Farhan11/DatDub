@@ -141,6 +141,7 @@ def test_child_tables_are_capped_but_keep_min_children():
     assert notes and "capped" in notes[0]
     # invoices were capped, items keep at least one per invoice while the budget allows
     assert _fk_ok(t, finance.build())
+    assert t["invoices"]["invoice_id"].isin(t["invoice_items"]["invoice_id"]).all()
 
 
 def test_null_and_outlier_rates_skip_keys_and_rule_columns():

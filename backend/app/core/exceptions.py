@@ -44,3 +44,15 @@ class NotFound(AppError):
 class RowsLimitExceeded(AppError):
     code = "rows_limit_exceeded"
     status_code = 422
+
+
+class InvalidSchema(AppError):
+    """The request is well-formed JSON but cannot be generated as asked."""
+
+    code = "invalid_schema"
+    status_code = 422
+
+
+class ServerBusy(AppError):
+    code = "server_busy"
+    status_code = 503

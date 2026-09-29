@@ -12,12 +12,15 @@ is never called here.
 """
 
 import json
+import math
 from datetime import date, datetime
 
 import numpy as np
 import pandas as pd
 
+from app.core.exceptions import InvalidSchema
 from app.engine import pools
+from app.ingest.heuristics import bool_label
 from app.schemas import ColumnSchema, DatasetSchema, ForeignKey, TableSchema
 
 DEFAULT_ROOT_ROWS = 100
@@ -82,7 +85,7 @@ def generate(
         driver = max(parent_fks, key=lambda fk: depth[fk.ref_table], default=None)
 
         if driver is None:
-            n = rows.get(table.name) or table.row_count_hint or DEFAULT_ROOT_ROWS
+            n = rows[table.name] if table.name in rows else (table.row_count_hint or DEFAULT_ROOT_ROWS)
             n = max(0, min(int(n), row_cap))
             parent_ids = None
         else:
@@ -106,7 +109,11 @@ def generate(
                 data[col.name] = parent_ids
             elif fk is not None:
                 pks = tables[fk.ref_table][fk.ref_column].to_numpy()
-                data[col.name] = rng.choice(pks, size=n) if len(pks) else np.full(n, None, dtype=object)
+                if col.unique:  # 1:1 link: each parent at most once
+                    _need(col, len(pks), n)
+                    data[col.name] = rng.choice(pks, size=n, replace=False)
+                else:
+                    data[col.name] = rng.choice(pks, size=n) if len(pks) else np.full(n, None, dtype=object)
             else:
                 data[col.name] = _column_values(col, n, rng, locale)
         tables[table.name] = pd.DataFrame(data)
@@ -165,6 +172,8 @@ def _sequential_ids(name: str, n: int) -> list[str]:
 
 
 def _column_values(col: ColumnSchema, n: int, rng: np.random.Generator, locale: str) -> np.ndarray | list:
+    if col.unique and (col.data_type != "string" or col.allowed_values):
+        return _unique_values(col, n, rng)
     st, p = col.semantic_type, col.profile
     if col.allowed_values:
         return _categorical(col.allowed_values, p.top_values if p else None, n, rng)
@@ -195,10 +204,14 @@ def _categorical(values: list[str], top_values, n: int, rng: np.random.Generator
 
 
 def _true_share(top_values) -> float:
+    """Share of true values in the profile; 0.5 when the profile has no boolean values."""
+    shares = {"true": 0.0, "false": 0.0}
     for v, f in top_values or []:
-        if str(v).lower() in ("true", "1", "yes", "t"):
-            return float(f)
-    return 0.5
+        label = bool_label(v)
+        if label:
+            shares[label] += float(f)
+    total = shares["true"] + shares["false"]
+    return shares["true"] / total if total > 0 else 0.5
 
 
 def _as_float(value) -> float | None:
@@ -232,10 +245,91 @@ def _numbers(col: ColumnSchema, n: int, rng: np.random.Generator) -> np.ndarray:
         values = lo + (hi - lo) * rng.beta(1.5, 5.0, size=n)
     else:
         values = rng.uniform(lo, hi, size=n)
-    values = np.clip(values, lo, hi)
+    return _round_in_bounds(col, np.clip(values, lo, hi), lo, hi)
+
+
+def _is_money(col: ColumnSchema) -> bool:
+    return col.data_type == "decimal" or col.semantic_type == "currency_amount"
+
+
+def _round_in_bounds(col: ColumnSchema, values: np.ndarray, lo: float, hi: float) -> np.ndarray:
+    """Integers to whole numbers, decimals/money to cents, other floats to 6
+    significant digits. Rounding never moves a value outside [lo, hi]."""
     if col.data_type == "integer":
-        return np.rint(values).astype(np.int64)
-    return np.round(values, 2)
+        lo_r, hi_r = math.ceil(lo), math.floor(hi)
+        out = np.rint(values)
+        return (np.clip(out, lo_r, hi_r) if lo_r <= hi_r else out).astype(np.int64)
+    if _is_money(col):
+        lo_r, hi_r = math.ceil(lo * 100) / 100, math.floor(hi * 100) / 100
+        out = np.round(values, 2)
+        return np.clip(out, lo_r, hi_r) if lo_r <= hi_r else out
+    return np.clip(_round_sig(values, 6), lo, hi)
+
+
+def _round_sig(values: np.ndarray, digits: int) -> np.ndarray:
+    values = np.asarray(values, dtype=float)
+    mag = np.floor(np.log10(np.abs(np.where(values == 0, 1.0, values))))
+    scale = 10.0 ** (digits - 1 - mag)
+    return np.round(values * scale) / scale
+
+
+# --- unique (non-key) columns ------------------------------------------------
+
+
+def _unique_values(col: ColumnSchema, n: int, rng: np.random.Generator) -> np.ndarray:
+    """Distinct values drawn without replacement from the column's domain.
+    Raises InvalidSchema when the domain has fewer than `n` values."""
+    if col.allowed_values:
+        values = np.array(col.allowed_values, dtype=object)
+        _need(col, len(values), n)
+        return rng.permutation(values)[:n]
+    if col.data_type == "boolean":
+        _need(col, 2, n)
+        return rng.permutation(np.array([True, False]))[:n]
+    if col.data_type in ("date", "datetime") or col.semantic_type in ("date", "datetime"):
+        lo, hi = _date_bounds(col)
+        if col.max in (None, "") and (hi - lo).days + 1 < n:  # no explicit end: extend the range
+            hi = lo + pd.Timedelta(days=2 * n).to_pytimedelta()
+        if col.data_type == "datetime" or col.semantic_type == "datetime":
+            size = ((hi - lo).days + 1) * 86_400
+            _need(col, size, n)
+            start = np.datetime64(datetime(lo.year, lo.month, lo.day), "s")
+            return start + _distinct(size, n, rng).astype("timedelta64[s]")
+        size = (hi - lo).days + 1
+        _need(col, size, n)
+        return np.datetime64(lo, "D") + _distinct(size, n, rng).astype("timedelta64[D]")
+    lo, hi = _num_bounds(col)
+    if _as_float(col.max) is None:  # no explicit maximum: make room for n distinct values
+        hi = max(hi, lo + 2 * n * (1 if col.data_type == "integer" else 0.01))
+    if col.data_type == "integer":
+        lo_i, hi_i = math.ceil(lo), math.floor(hi)
+        size = hi_i - lo_i + 1
+        _need(col, size, n)
+        return lo_i + _distinct(size, n, rng)
+    step = 0.01 if _is_money(col) else max((hi - lo) / max(1000 * n, 1), 1e-12)
+    lo_s = math.ceil(lo / step - 1e-9) * step
+    size = int(math.floor((hi - lo_s) / step + 1e-9)) + 1
+    _need(col, size, n)
+    values = lo_s + _distinct(size, n, rng) * step
+    return np.round(values, 2) if _is_money(col) else values
+
+
+def _distinct(size: int, n: int, rng: np.random.Generator) -> np.ndarray:
+    """`n` distinct integers in [0, size)."""
+    if size <= 4 * n + 1000:
+        return rng.permutation(size)[:n].astype(np.int64)
+    picked = np.unique(rng.integers(0, size, size=n + n // 10 + 16))
+    while len(picked) < n:
+        picked = np.unique(np.concatenate([picked, rng.integers(0, size, size=n)]))
+    return rng.permutation(picked)[:n].astype(np.int64)
+
+
+def _need(col: ColumnSchema, size: int, n: int) -> None:
+    if size < n:
+        raise InvalidSchema(
+            f"Column '{col.name}' is unique but its range has only {max(size, 0):,} distinct values "
+            f"for {n:,} rows. Widen the range or generate fewer rows."
+        )
 
 
 def _parse_date(value) -> date | None:
@@ -247,12 +341,15 @@ def _parse_date(value) -> date | None:
         return None
 
 
-def _dates(col: ColumnSchema, n: int, rng: np.random.Generator) -> np.ndarray:
+def _date_bounds(col: ColumnSchema) -> tuple[date, date]:
     p = col.profile
     lo = _parse_date(col.min) or (_parse_date(p.min) if p else None) or _DEFAULT_START
     hi = _parse_date(col.max) or (_parse_date(p.max) if p else None) or _DEFAULT_END
-    if lo > hi:
-        lo, hi = hi, lo
+    return (hi, lo) if lo > hi else (lo, hi)
+
+
+def _dates(col: ColumnSchema, n: int, rng: np.random.Generator) -> np.ndarray:
+    lo, hi = _date_bounds(col)
     if col.data_type == "datetime" or col.semantic_type == "datetime":
         start = np.datetime64(datetime(lo.year, lo.month, lo.day), "s")
         span = int((hi - lo).days + 1) * 86_400
@@ -283,7 +380,8 @@ def _apply_rules(schema: DatasetSchema, tables: dict[str, pd.DataFrame], rng: np
         t = topo.get(r.table, 0)
         return (order[r.kind], -t if r.kind == "sum_of_children" else t, 0 if r.params.get("via_fk") else 1)
 
-    for rule in sorted(schema.rules, key=sort_key):
+    written: set[tuple[str, str]] = set()  # date columns already set by a date rule
+    for rule in _dependency_order(sorted(schema.rules, key=sort_key)):
         df = tables.get(rule.table)
         if df is None or rule.column not in df.columns:
             continue
@@ -299,7 +397,9 @@ def _apply_rules(schema: DatasetSchema, tables: dict[str, pd.DataFrame], rng: np
                 if bad.any():
                     df.loc[bad, rule.column] = rng.choice(np.array(allowed, dtype=object), size=int(bad.sum()))
         elif rule.kind == "date_order":
-            _enforce_date_order(schema, tables, rule.table, rule.column, p, rng)
+            target = str(p.get("after") or rule.column)
+            _enforce_date_order(schema, tables, rule.table, target, p, rng, only_violations=(rule.table, target) in written)
+            written.add((rule.table, target))
         elif rule.kind == "sum_of_children":
             child_name = p.get("child_table")
             child = tables.get(child_name)
@@ -323,16 +423,41 @@ def _apply_rules(schema: DatasetSchema, tables: dict[str, pd.DataFrame], rng: np
             df[rule.column] = np.where(full, cap, partial)
 
 
-def _enforce_date_order(schema, tables, table: str, column: str, p: dict, rng: np.random.Generator) -> None:
+def _dependency_order(rules: list) -> list:
+    """Keep the given order, except that a same-table date rule whose `before`
+    column is another date rule's target runs after that rule (a <= b before
+    b <= c), so later rules never undo earlier ones."""
+    out, pending = [], list(rules)
+    while pending:
+        pick = next((r for r in pending if not _waits_for_date(r, pending)), pending[0])  # pending[0]: a cycle
+        out.append(pick)
+        pending.remove(pick)
+    return out
+
+
+def _waits_for_date(rule, pending: list) -> bool:
+    if rule.kind != "date_order" or rule.params.get("via_fk"):
+        return False
+    before = rule.params.get("before")
+    return any(
+        o is not rule and o.kind == "date_order" and o.table == rule.table and (o.params.get("after") or o.column) == before
+        for o in pending
+    )
+
+
+def _enforce_date_order(
+    schema, tables, table: str, column: str, p: dict, rng: np.random.Generator, only_violations: bool = False
+) -> None:
     """Same-table pairs (issue → due) are regenerated as before + 0..44 days.
-    Cross-table pairs (customer created → invoice issued) keep valid dates and
-    only move the violating ones."""
+    Cross-table pairs (customer created → invoice issued), and columns an
+    earlier date rule already set, keep valid dates and only move the
+    violating ones."""
     df = tables[table]
     before = _resolve_parent_col(schema, tables, table, p.get("before"), p.get("via_fk"))
     if before is None:
         return
     before = pd.to_datetime(before).to_numpy()
-    if p.get("via_fk"):
+    if p.get("via_fk") or only_violations:
         after = pd.to_datetime(df[column]).to_numpy()
         bad = after < before
         offset = rng.integers(0, 90, size=int(bad.sum())).astype("timedelta64[D]")

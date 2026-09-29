@@ -4,8 +4,9 @@ Step A (`list_tables`) reads catalog metadata only, never rows.
 Steps B+C (`extract`) introspect the selected tables with SQLAlchemy
 `inspect()`, auto-add FK parents, and in `schema_and_sample` mode read up
 to `sample_limit` random rows per table, profile them, and drop them.
-Children-per-parent counts are read as aggregates for the sampled parents.
-All reads happen inside `db_guard.read_only`.
+Children-per-parent counts are read as aggregates for the sampled parents,
+and in sample mode catalogue rules are checked over whole tables with
+aggregate queries (`db_rules`). All reads happen inside `db_guard.read_only`.
 """
 
 import logging
@@ -23,10 +24,11 @@ from starlette.concurrency import run_in_threadpool
 from app.core.exceptions import AppError
 from app.ingest.build import RawTable, column_from_metadata, column_from_values, finalize
 from app.ingest.db_guard import make_engine, map_db_error, read_only
+from app.ingest.db_rules import infer_db_rules
 from app.ingest.enrich import enrich_schema
 from app.ingest.profiler import counts_to_distribution
 from app.schemas.api import DbConnection, DbTableInfo, ExtractMode, FromDbResponse
-from app.schemas.dataset import DataType, ForeignKey, SourceKind
+from app.schemas.dataset import DatasetSchema, DataType, ForeignKey, SourceKind
 
 logger = logging.getLogger("app.ingest.db")
 
@@ -43,6 +45,7 @@ class _Meta:
     pk: list[str]
     fks: list[dict]
     estimated_rows: int
+    unique: set[str]
 
 
 # --- step A --------------------------------------------------------------------
@@ -118,11 +121,9 @@ async def _extract(
     engine: Engine, source: SourceKind, schema_name: str | None, tables: list[str], mode: ExtractMode, sample_limit: int
 ) -> FromDbResponse:
     # blocking DB I/O runs in a worker thread, the AI call back on the event loop
-    raw, auto_added, rows_sampled, notes = await run_in_threadpool(
+    schema, auto_added, rows_sampled, notes = await run_in_threadpool(
         _read_tables, engine, source, schema_name, tables, mode, sample_limit
     )
-    schema, build_notes = finalize(raw, source, f"{source}_schema")
-    notes += build_notes
     notes += await enrich_schema(schema)
     if mode == "schema_only":
         notes.append("Schema only: column semantics come from names and types (no rows were read).")
@@ -131,7 +132,7 @@ async def _extract(
 
 def _read_tables(
     engine: Engine, source: SourceKind, schema_name: str | None, tables: list[str], mode: ExtractMode, sample_limit: int
-) -> tuple[list[RawTable], list[str], int, list[str]]:
+) -> tuple[DatasetSchema, list[str], int, list[str]]:
     wanted = list(dict.fromkeys(t.strip() for t in tables if t.strip()))
     samples: dict[str, pd.DataFrame] = {}
     distributions: dict[tuple[str, str], list[tuple[int, float]]] = {}
@@ -163,6 +164,7 @@ def _read_tables(
                 pk=list(insp.get_pk_constraint(name, schema=schema_name).get("constrained_columns") or []),
                 fks=fks,
                 estimated_rows=estimates.get(name, 0),
+                unique=_unique_columns(insp, name, schema_name),
             )
             for fk in fks:
                 parent = fk.get("referred_table")
@@ -191,10 +193,20 @@ def _read_tables(
                         elif dist:
                             distributions[(m.name, fk["constrained_columns"][0])] = dist
 
-    raw = [_raw_table(m, samples.get(m.name), distributions, notes) for m in metas.values()]
-    rows_sampled = sum(len(df) for df in samples.values())
-    samples.clear()  # rows are profiled; drop them before any AI call
-    return raw, auto_added, rows_sampled, notes
+        raw = [_raw_table(m, samples.get(m.name), distributions, notes) for m in metas.values()]
+        rows_sampled = sum(len(df) for df in samples.values())
+        samples.clear()  # rows are profiled; drop them before any AI call
+        schema, build_notes = finalize(raw, source, f"{source}_schema")
+        notes += build_notes
+        if mode == "schema_and_sample":
+            links = {
+                (m.name, fk["constrained_columns"][0]): (fk["referred_table"], fk["referred_columns"][0])
+                for m in metas.values()
+                for fk in _single_fks(m)
+            }
+            schema.rules, rule_notes = infer_db_rules(c, schema_name, schema, links)
+            notes += rule_notes
+    return schema, auto_added, rows_sampled, notes
 
 
 def _raw_table(m: _Meta, sample: pd.DataFrame | None, dists: dict, notes: list[str]) -> RawTable:
@@ -206,6 +218,10 @@ def _raw_table(m: _Meta, sample: pd.DataFrame | None, dists: dict, notes: list[s
             columns.append(column_from_values(col["name"], sample[col["name"]], declared=data_type, nullable=nullable))
         else:
             columns.append(column_from_metadata(col["name"], data_type, nullable))
+    for col in columns:
+        if col.name in m.unique:
+            # a sampled range is too narrow for many distinct values: keep only the lower bound
+            col.unique, col.max = True, None
     pk = m.pk[0] if m.pk else None
     if len(m.pk) > 1:
         notes.append(f"{m.name} has a composite primary key; the generator uses a single generated key instead.")
@@ -216,12 +232,20 @@ def _raw_table(m: _Meta, sample: pd.DataFrame | None, dists: dict, notes: list[s
             ref_table=fk["referred_table"],
             ref_column=fk["referred_columns"][0],
             children_distribution=dists.get((m.name, fk["constrained_columns"][0])),
+            cardinality="1:1" if fk["constrained_columns"][0] in m.unique else "1:N",
         )
         for fk in _single_fks(m)
     ]
     if len(fks) < len(m.fks):
         notes.append(f"{m.name}: composite foreign keys are not supported and were skipped.")
     return RawTable(name=m.name, columns=columns, primary_key=pk, foreign_keys=fks, row_count=m.estimated_rows or None)
+
+
+def _unique_columns(insp, name: str, schema_name: str | None) -> set[str]:
+    """Columns with a single-column UNIQUE constraint or unique index."""
+    groups = [u.get("column_names") or [] for u in insp.get_unique_constraints(name, schema=schema_name)]
+    groups += [i.get("column_names") or [] for i in insp.get_indexes(name, schema=schema_name) if i.get("unique")]
+    return {g[0] for g in groups if len(g) == 1 and g[0]}
 
 
 def _single_fks(m: _Meta) -> list[dict]:

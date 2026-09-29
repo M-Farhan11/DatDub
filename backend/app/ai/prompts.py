@@ -22,7 +22,7 @@ _RULE_CATALOGUE = """Rule catalogue (use only these kinds; fill only the fields 
 - lte_parent: column must be <= `parent_column` of `parent_table` (through the FK)"""
 
 _SCENARIO_CATALOGUE = """Scenario catalogue (use only these kinds):
-- null_burst: several rows get NULL in a nullable column (set `column`)
+- null_burst: several rows get NULL in a non-key column (set `column`); on a required column this is an intended "missing required value" test
 - extreme_value: several rows get values far outside the normal range of a numeric column (set `column`)
 - duplicate_record: several rows are duplicated with new primary keys (e.g. a duplicate payment)
 - boundary_date: several rows get dates at boundaries: month end, leap day, far past/future (set `column` to a date column)
