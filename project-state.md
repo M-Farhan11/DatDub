@@ -53,3 +53,13 @@ synthetic data studio** (see `idea.md`).
   profiler + validators instead.
 - 2026-09-29: AI = Gemini primary, Groq fallback via httpx, Mock. AI
   produces plans only; rows are deterministic.
+- 2026-09-29: DB flow is 3 steps: `POST /api/db/tables` (no rows) → user
+  picks tables (FK parents auto-added) → extract. Sample is 200 rows/table by
+  default, max 1000, profiled then discarded. Nothing raw goes to the AI.
+- 2026-09-29: Scale: 1–2 AI calls per job regardless of row count;
+  vectorized engine + value pools; 100k rows/table default, 500k ceiling;
+  50-row previews; data delivered via ZIP.
+- 2026-09-29: External DB connect: Postgres (any reachable host) + SQLite
+  upload; SSRF guard; stateless credentials; MySQL in the backlog.
+- 2026-09-29: No auth: open site, unguessable `dataset_id`, in-memory store
+  with a 60 min TTL and max 20 datasets.

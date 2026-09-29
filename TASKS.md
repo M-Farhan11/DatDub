@@ -102,7 +102,11 @@ invoice PDF → ground truth tab → download ZIP.
       `api/documents.py` + `api/export.py` stubs (then handed to H)
 - [ ] `main.py`: register all routers, CORS (`CORS_ORIGINS` env), `/api` prefix
 - [ ] `requirements.txt`: `pandas numpy faker sqlalchemy psycopg[binary] python-multipart google-genai reportlab`
-- [ ] `.env.example`: `GEMINI_MODEL`, `GROQ_MODEL`, `CORS_ORIGINS`, `MAX_ROWS_PER_TABLE`
+- [ ] `.env.example`: `GEMINI_MODEL`, `GROQ_MODEL`, `CORS_ORIGINS`,
+      `MAX_ROWS_PER_TABLE=100000`, `MAX_DATASETS=20`, `DATASET_TTL_MINUTES=60`,
+      `ALLOW_PRIVATE_DB_HOSTS=true` (local; `false` on Railway),
+      `DEFAULT_SAMPLE_LIMIT=200`, `MAX_SAMPLE_LIMIT=1000`
+- [ ] Store: TTL 60 min + max 20 datasets (oldest evicted); `dataset_id` = random, unguessable (`secrets.token_urlsafe`)
 
 **Accept:** `uvicorn` runs; `/docs` shows every endpoint; each stub returns
 contract-valid JSON; `pytest` is green; pushed to `main`.
@@ -133,13 +137,29 @@ object; invalid JSON triggers retry/fallback (tested with a fake provider).
       id, currency) + PK guess + FK guess across files (`<table>_id` naming)
       + AI semantic enrichment on **metadata only**
 - [ ] Prompt → schema via AI; validate (unique names, FK targets exist, rules reference real columns)
-- [ ] DB: `POST /api/schema/from-db` (Postgres URL) + `POST /api/schema/from-sqlite`
-      (upload) via SQLAlchemy `inspect()`. Read-only transaction,
-      `statement_timeout`, `LIMIT` ≤ 500 per table, URL never logged or returned.
-      Modes: `schema_only` | `schema_and_sample`
+- [ ] DB step A: `POST /api/db/tables`: accepts a URL **or** host/port/db/user/password;
+      returns tables + column counts + `estimated_rows` (`pg_class.reltuples`) + FK references. **No rows read.**
+- [ ] DB steps B+C: `POST /api/schema/from-db {connection, tables, mode, sample_limit}`
+      via SQLAlchemy `inspect()`:
+  - FK parent tables auto-added (returned in `auto_added`)
+  - `sample_limit` default 200, max 1000
+  - `TABLESAMPLE SYSTEM` for big tables, `ORDER BY random() LIMIT` for small ones
+  - profile the sample, then discard the rows
+- [ ] `POST /api/schema/from-sqlite` (upload; same modes; temp file deleted after the request)
+- [ ] DB safety (`ingest/db_guard.py`):
+  - Postgres-only scheme
+  - SSRF guard: resolve the host, reject loopback/private/link-local/metadata IPs unless `ALLOW_PRIVATE_DB_HOSTS=true`
+  - `connect_timeout=5`, `SET TRANSACTION READ ONLY`, `statement_timeout=10s`
+  - credentials redacted from every error/log and never stored
+  - error codes: `db_unreachable`, `db_auth_failed`, `db_host_not_allowed`, `db_timeout`, `db_unsupported_dialect`
+- [ ] AI payload builder: names, types, constraints and aggregates only; category
+      values only for columns with < 20 distinct values that are not PII.
+      Unit test: no sample value from a PII column appears in the AI request.
 
 **Accept:** each input returns a valid `DatasetSchema`; a column profile is
-attached when sample rows exist; bad URL/file → a clean 4xx with a message.
+attached when sample rows exist; bad URL/file → a clean 4xx with a message;
+`127.0.0.1` / `169.254.169.254` are rejected when `ALLOW_PRIVATE_DB_HOSTS=false`;
+a password never appears in a response or log (tested).
 
 ### F4 · Profiler (inside F3 time)
 - [ ] Per column: null %, min/max/mean/std, 10-bin histogram, top category
@@ -147,17 +167,22 @@ attached when sample rows exist; bad URL/file → a clean 4xx with a message.
 
 ### F5 · Generation engine (2:40–3:30) — the heart of the product
 - [ ] Topological order over FKs; parents first
-- [ ] Column generators by semantic type (Faker, locale-aware), numerics from
-      profile or rule ranges, categoricals from profile weights / `allowed_values`
+- [ ] Column generators by semantic type, **vectorized**:
+  - NumPy for numerics/dates/categoricals (from profile or rule ranges, profile weights / `allowed_values`)
+  - **value pools** for text PII: seeded Faker pre-generates ~5k names/streets/companies, then vectorized random picks. No per-row Faker calls.
+  - emails = name + sequence, so they are unique
+  - child FK columns sample parent PKs that were already generated
 - [ ] Child counts per parent from the profile distribution or a default Poisson
 - [ ] Rules enforced: derived totals computed from children, dates ordered, `lte_parent` capped
 - [ ] Null rate + outlier rate (nullable / numeric columns only)
-- [ ] Seed → fully reproducible; `MAX_ROWS_PER_TABLE` cap (10k)
+- [ ] Seed → fully reproducible; `MAX_ROWS_PER_TABLE` cap (default 100k,
+      hard ceiling 500k) → `422 rows_limit_exceeded` above it
 - [ ] `POST /api/generate` saves to the store and returns previews (50 rows/table) + report
 - [ ] `GET /api/datasets/{id}/tables/{t}?offset&limit`
 
-**Accept:** finance template at 5,000 rows generates in under 10 s; the same
-seed gives identical output; FK integrity is 100%.
+**Accept:** finance template with 5,000 customers generates in under 5 s and
+100,000 customers in under 30 s; the same seed gives identical output; FK
+integrity is 100%. AI is called 0 times during generation (plans only).
 
 ### F6 · Validation report (inside Core / by Checkpoint 1)
 - [ ] PK uniqueness, FK integrity, type/nullability, per-rule pass/fail counts
@@ -210,8 +235,15 @@ truth, and the report marks them as expected.
 
 ### H1 · Source step (0:45–1:45)
 - [ ] Tabs: **Prompt** (textarea + example chips) · **CSV** (drag-drop, multi-file) ·
-      **Database** (Postgres URL field + SQLite upload + "Schema only / Schema + sample" toggle) ·
-      **Templates** (E-commerce, Finance cards)
+      **Database** (see below) · **Templates** (E-commerce, Finance cards)
+- [ ] **Database tab**, a 3-step mini-flow:
+  1. **Connect:** toggle "Connection string" / "Fields" (host, port, database, user, password) + a SQLite upload option → `POST /api/db/tables`
+  2. **Pick tables:** checklist with column count, `~estimated_rows`, FK links; mode toggle "Schema only / Schema + sample"; sample size (default 200, max 1000)
+  3. **Extract** → `POST /api/schema/from-db` → show an "auto-added: …" notice if any
+  - Credentials live in **React state only** (never `localStorage`) and are re-sent with each call
+  - Collapsible help: "Use a read-only user" with the SQL snippet; "Local DBs (localhost) aren't reachable from the hosted app, so use a tunnel or run locally"
+  - A "Use demo database" button pre-fills the Supabase read-only demo connection
+- [ ] Configure step shows a "large job" warning above 100k rows
 - [ ] Loading + error states; on success → store the schema → go to the Schema step
 
 ### H2 · Schema step (1:45–2:45) — main visual "wow"
@@ -295,6 +327,9 @@ Priority order. Claim one by writing your initial next to it.
 6. [ ] N:N junction-table cardinality (F)
 7. [ ] Column privacy controls: mask/hash values learned from the sample (F + H)
 8. [ ] SDMetrics diagnostics; saved projects in Supabase (F)
+9. [ ] MySQL/MariaDB connector (`pymysql` + read-only session), ~30–45 min (F + H: dialect dropdown)
+10. [ ] Chunked, streamed generation and export for > 500k rows (F + H)
+11. [ ] Simple per-IP rate limit on `/api/generate` and the AI endpoints (F)
 
 **Cut (do not build):** auth/RBAC, SDV training, differential-privacy claims,
 MySQL/MSSQL/Mongo, GL/TB/SOCI/SOFP, Redis/Celery/Docker/CI, AI-generated rows.
@@ -306,3 +341,4 @@ MySQL/MSSQL/Mongo, GL/TB/SOCI/SOFP, Redis/Celery/Docker/CI, AI-generated rows.
 Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 
 - 2026-09-29 · F · done: MVP locked, work split, CLAUDE.md rules (ownership + agent orchestration), TASKS.md, docs updated · left: F0 contract freeze · blockers: none
+- 2026-09-29 · F · done: clarified DB extraction (3-step list → pick → extract, 200/1000 sample, no rows to AI), scale (1–2 AI calls/job, vectorized engine, 100k default / 500k ceiling), external DB connect + SSRF guard, no-auth access model (TTL store); updated contract, architecture, F0/F3/F5/H1, backlog · left: F0 · blockers: none
