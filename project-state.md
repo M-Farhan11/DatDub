@@ -49,9 +49,13 @@ synthetic data studio** (see `idea.md`).
   Poisson, child tables capped at `MAX_ROWS_PER_TABLE`, all 5 rule kinds
   enforced, null/outlier rates on non-key/non-rule columns. 5k customers < 5 s,
   100k < 30 s. QA doc: `Manual Testing/backendtest2.md`.
+- **DONE (F6):** validation report: PK, FK, types & nullability per table,
+  one row-level check per rule, injected rows (ground truth) counted as expected,
+  similarity vs sample profile (category 1−TVD, histogram overlap). 100k customers
+  report ≈ 1 s. QA doc: `Manual Testing/backendtest3.md`.
 - **IN PROGRESS:** —
-- **NEXT:** F6 validation report (types/nullability, per-rule checks, expected
-  violations, similarity), F7 scenario injection + ground truth
+- **NEXT:** F7 scenario injection + ground truth (then pass it to `build_report`),
+  F8 Supabase demo DB
 
 ## Haider (frontend + documents/export)
 
@@ -76,6 +80,8 @@ synthetic data studio** (see `idea.md`).
   `GROQ_MODEL=openai/gpt-oss-120b`); a provider without key + model is skipped (→ mock).
 
 ## Decisions log
+
+- 2026-09-29: F6: expected violations are matched by table + PK (ground truth `affected_ids`); rule-computed columns stay in similarity (honest score; they can be low on tiny samples).
 
 - 2026-09-29: F5: child tables above the row cap are scaled down (not rejected), keeping each parent's minimum children while the budget allows; `GenerateResponse.notes` proposed to surface this. Faker pools use a fixed seed (cached per locale); the request seed only drives the picks, so output stays reproducible. Nulls/outliers never touch keys or rule columns, so rules stay 100% valid unless a scenario breaks them on purpose.
 
