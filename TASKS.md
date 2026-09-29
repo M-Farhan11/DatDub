@@ -120,8 +120,8 @@ contract-valid JSON; `pytest` is green; pushed to `main`.
 ### F1 · AI layer (0:45–1:30)
 - [x] `AIService.generate_structured(prompt, response_model)`: validate with
       Pydantic, retry once on invalid output, then fallback provider, then `AIProviderError`
-- [~] `GeminiProvider` (google-genai, structured output, model from env) (code done; live check needs a key)
-- [~] `GroqProvider` (httpx → OpenAI-compatible endpoint, JSON mode + schema in prompt, model from env) (tested with a mock transport; live check needs a key)
+- [x] `GeminiProvider` (google-genai, structured output, model from env)
+- [x] `GroqProvider` (httpx → OpenAI-compatible endpoint, JSON mode + schema in prompt, model from env)
 - [x] `MockProvider`: canned valid objects for `SchemaDraft`, `SemanticEnrichment`, `ScenarioPlan`
 - [x] `backend/app/ai/prompts.py`: prompt → schema, column semantics, scenario proposals
 
@@ -357,3 +357,4 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 - 2026-09-29 · F · done: clarified DB extraction (3-step list → pick → extract, 200/1000 sample, no rows to AI), scale (1–2 AI calls/job, vectorized engine, 100k default / 500k ceiling), external DB connect + SSRF guard, no-auth access model (TTL store); updated contract, architecture, F0/F3/F5/H1, backlog · left: F0 · blockers: none
 - 2026-09-29 · F · done: F0 (contract models, API contract v1.0 frozen, types.ts, in-memory store with TTL/max, all routers + stubs, CORS + `/api` prefix + error envelope, deps, .env.example, 18 tests green) + F2 templates (finance, ecommerce) + first-cut generator/validator · left: F1 AI layer, F3–F7 · blockers: none
 - 2026-09-29 · F · done: F1 AI layer (AIService.generate_structured with validate → retry-with-feedback → fallback → AIProviderError; Gemini (google-genai JSON schema), Groq (httpx JSON mode), schema-aware Mock; prompts; validate.py converters), wired `/schema/from-prompt` + `/scenarios/propose` to AI; 33 tests green + 2 live tests (skipped, no key) · left: live Gemini/Groq check with real keys, F3 CSV/DB ingest, F5–F7 · blockers: no API keys in .env yet
+- 2026-09-29 · F · done: F1 verified live (Gemini `gemini-2.5-flash` + Groq `openai/gpt-oss-120b` both pass `tests/test_ai_live.py`; real from-prompt returns a valid 6-table schema); fixed: provider names case-insensitive, unit tests forced to mock via `tests/conftest.py` · left: F3 ingest, F5–F7 · blockers: none (Gemini sometimes returns 503 "high demand"; Groq fallback covers it, so keep `AI_FALLBACK_PROVIDER=groq`; Groq free tier = 8k tokens/min ≈ 2 calls/min)

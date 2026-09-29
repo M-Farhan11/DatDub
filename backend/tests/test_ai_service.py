@@ -105,7 +105,7 @@ async def test_markdown_fences_are_tolerated():
 
 
 def test_real_provider_without_key_falls_back_to_mock():
-    service = AIService(settings=Settings(ai_provider="gemini", gemini_api_key="", ai_fallback_provider="groq"))
+    service = AIService(settings=Settings(ai_provider="gemini", gemini_api_key="", ai_fallback_provider="groq", groq_api_key=""))
     assert service.provider_name == "mock"
     assert service._fallback is None
 
@@ -269,3 +269,8 @@ async def test_groq_provider_sends_json_mode_and_returns_content(monkeypatch):
 async def test_mock_rejects_unknown_models():
     with pytest.raises(NotImplementedError):
         await MockProvider().generate_json(_plan_prompt(), AIPrompt)
+
+
+def test_provider_names_are_case_insensitive():
+    service = AIService(settings=Settings(ai_provider="GEMINI", gemini_api_key="k", gemini_model="m"))
+    assert service.provider_name == "gemini"

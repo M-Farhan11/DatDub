@@ -32,6 +32,7 @@ ATTEMPTS_PER_PROVIDER = 2  # first try + one retry on invalid output
 
 
 def build_provider(name: str, settings: Settings) -> AIProvider | None:
+    name = name.strip().lower()
     if name == "gemini":
         if settings.gemini_api_key and settings.gemini_model:
             return GeminiProvider(settings.gemini_api_key, settings.gemini_model)

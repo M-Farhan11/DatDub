@@ -34,7 +34,7 @@ synthetic data studio** (see `idea.md`).
   one retry with error feedback, fallback provider, `AIProviderError`), Gemini /
   Groq / schema-aware Mock providers, prompts, `ai/validate.py` (drops invalid
   AI references). `/schema/from-prompt` and `/scenarios/propose` now go through AI.
-- **IN PROGRESS:** live Gemini/Groq check (needs keys in `backend/.env`)
+- **IN PROGRESS:** —
 - **NEXT:** F3 ingest (CSV + DB + SQLite, payload builder, enrichment),
   F5 engine hardening (child-table caps, Faker pools, null/outlier), F6 rules, F7 injection
 
@@ -54,6 +54,11 @@ synthetic data studio** (see `idea.md`).
 - The system default Python is 3.14 (no `pydantic-core` wheels). Create the
   backend venv with Python 3.12: `py -3.12 -m venv .venv`.
 - `google-genai` pulls pydantic 2.13 (pinned in requirements).
+- Gemini free tier sometimes returns `503 UNAVAILABLE` ("high demand"). Keep
+  `AI_FALLBACK_PROVIDER=groq` so calls fall through to Groq. Groq free tier is
+  8k tokens/min (≈ 2 AI calls/min): fine for a demo, not for load.
+- Model IDs are required in `.env` (`GEMINI_MODEL=gemini-2.5-flash`,
+  `GROQ_MODEL=openai/gpt-oss-120b`); a provider without key + model is skipped (→ mock).
 
 ## Decisions log
 
