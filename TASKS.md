@@ -284,8 +284,11 @@ truth, and the report marks them as expected.
 - [x] Supabase project `htdooohjsznvtgzxwkuv` seeded through the Supabase MCP (migrations `demo_finance_seed`,
       `demo_reader_role_and_rls`): 40/100/250/63 rows, sanity checks 0, `demo_reader` SELECT-only + read-only
       default + 10 s timeout, RLS on (policy for demo_reader only), anon/authenticated revoked, security advisor clean
-- [ ] Set the `demo_reader` password (owner, SQL editor) and put the pooler URL in the frontend "Use demo database" button (H) / Railway
-- [~] Verify `from-db` (both modes) against Supabase (waits for the demo_reader password) and a local Postgres: SQLite verified
+- [x] `demo_reader` password set (owner); login via the session pooler (`aws-0-ap-northeast-2.pooler.supabase.com:5432`) works
+- [ ] Put the pooler URL in the frontend "Use demo database" button (H: get it from Farhan privately, never in git)
+- [x] Verify `from-db` (both modes) against Supabase: login as demo_reader, writes blocked (read-only),
+      db/tables 4 tables, schema_only 200 (0 rows read), schema_and_sample 200 (403 rows, 10 rules incl. sum/lte/dates),
+      generate 1,000 customers → PASS, similarity 96%. (Local Postgres test still optional.)
       (`tests/test_db_rules.py`); Postgres test ready, needs `TEST_PG_SEED_URL` (scratch DB) to run
 
 > F8 notes: `infer_db_rules` checks allowed_values (drops a sampled category list that the
@@ -441,3 +444,4 @@ Format: `YYYY-MM-DD HH:MM · F|H · done: … · left: … · blockers: …`
 - 2026-09-29 · F · done: F6 validation report (types/nullability, per-rule row checks for all 5 rule kinds, expected violations from ground truth, similarity = category TVD + histogram overlap, dedupe-safe parent lookups); contract doc example updated (no shape change); 127 tests green; QA `Manual Testing/backendtest3.md` · left: F7 injection + ground truth, F8 Supabase, F9 deploy · blockers: none
 - 2026-09-29 · F · done: reviewed the GPT pre-F7 audit (all 12 findings confirmed and fixed with regression tests); F7 scenario injection + ground truth with per-check expected-violation attribution; F8 seed script + DB rule inference via aggregate queries + UNIQUE constraints; 172 tests green (2 Postgres tests skipped: need credentials); QA `Manual Testing/backendtest4.md` · left: F8 Supabase project + run seed + read-only role (human), run `TEST_PG_SEED_URL` test, F9 deploy · blockers: Supabase account access
 - 2026-09-29 · F · done: Supabase MCP added (`.mcp.json`, shared with H); demo DB seeded on Supabase (2 migrations), read-only `demo_reader` role with RLS + Data API lockdown, security advisor clean · left: set demo_reader password, run from-db against Supabase, F9 deploy · blockers: none
+- 2026-09-29 · F · done: Supabase end-to-end verified (read-only login through the pooler, 10 rules found, generation PASS); fixed low-cardinality text columns (city/country/company) ignoring the sample → similarity 64% → 96% · left: F9 deploy, share the demo URL with H privately · blockers: none

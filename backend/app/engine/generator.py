@@ -183,7 +183,9 @@ def _column_values(col: ColumnSchema, n: int, rng: np.random.Generator, locale: 
         return rng.random(n) < _true_share(p.top_values if p else None)
     if col.data_type in _NUMERIC_TYPES or st in _NUMERIC_SEMANTICS:
         return _numbers(col, n, rng)
-    if st in ("category", "status") and p and p.top_values and not col.pii:
+    if col.data_type == "string" and st != "id" and p and p.top_values and not col.pii:
+        # a low-cardinality, non-PII text column: keep the sampled values and their frequencies
+        # (the profile lists every distinct value, so this is the source's full distribution)
         return _categorical([v for v, _ in p.top_values], p.top_values, n, rng)
     if st == "id":
         return np.array(_sequential_ids(col.name, n), dtype=object)

@@ -218,6 +218,20 @@ def test_all_false_profile_generates_false():
     assert generator._true_share(None) == 0.5
 
 
+def test_low_cardinality_text_keeps_the_source_values():
+    """city/country/company with few distinct sampled values follow the sample, not Faker."""
+    cities = pd.Series(["Lahore"] * 6 + ["Berlin"] * 3 + ["Milan"])
+    col = column_from_values("city", cities)
+    assert col.semantic_type == "city" and col.profile.top_values
+    schema = _one_table(col)
+    t = generator.generate(schema, {"things": 2000}, seed=1)
+    assert set(t["things"]["city"]) == {"Lahore", "Berlin", "Milan"}
+    assert build_report(schema, t).similarity.overall > 0.95
+    # PII columns never reuse sampled values
+    email = column_from_values("email", pd.Series(["a@x.com", "b@x.com"] * 5))
+    assert email.pii and not (email.profile and email.profile.top_values)
+
+
 def test_eleven_categories_are_not_truncated_into_a_rule():
     statuses = [f"status_{i:02d}" for i in range(11)]
     csv = "item_id,status\n" + "".join(f"I{i},{statuses[i % 11]}\n" for i in range(55))

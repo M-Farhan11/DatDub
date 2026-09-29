@@ -182,6 +182,28 @@ Developer shortcut: `$env:TEST_PG_SEED_URL = "postgresql://USER:PASSWORD@localho
 
 Result: [ ] PASS [ ] FAIL  Notes: ____
 
+### 8. The Supabase demo database (canonical demo source)
+
+*Purpose:* the hosted demo DB connects read-only and gives a clean generation.
+
+*Before:* ask Farhan for the demo connection URL (it contains a password: never paste it
+into files, chats or screenshots). If the password contains `@`, `%`, `#` or `/`, those
+must be written as `%40`, `%25`, `%23`, `%2F` inside the URL.
+
+*Steps (Swagger):*
+1. `POST /api/db/tables` with `{"connection": {"url": "<demo URL>"}}`
+2. `POST /api/schema/from-db` with `{"connection": {"url": "<demo URL>"}, "tables": ["payments", "invoice_items"], "mode": "schema_and_sample"}`
+3. Copy `schema` into `POST /api/generate` with `"rows": {"customers": 1000}`.
+
+*Expected:*
+1. `200`, 4 tables: customers (~40 rows), invoice_items (~250), invoices (~100), payments (~63).
+2. `200`, `auto_added` = `invoices`, `customers`; `rows_sampled` ≈ 400; about **10 rules**, including
+   "invoices.total equals the sum of invoice_items quantity * unit_price" and
+   "payments.amount is at most invoices.total". The password is **not** in the response.
+3. `200`, `report.overall` = `PASS`, `report.similarity.overall` above `0.9`.
+
+Result: [ ] PASS [ ] FAIL  Notes: ____
+
 ---
 
 ## Negative tests

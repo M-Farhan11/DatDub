@@ -67,8 +67,9 @@ synthetic data studio** (see `idea.md`).
   queries (`ingest/db_rules.py`); SQLite path verified.
 - **DONE (F8, Supabase):** project `htdooohjsznvtgzxwkuv` seeded via the Supabase MCP;
   `demo_reader` read-only role (no password yet), RLS + Data API lockdown.
-- **IN PROGRESS:** set the `demo_reader` password, then verify `/api/schema/from-db`
-  against the Supabase pooler.
+- **DONE (F8 verified):** `/api/schema/from-db` against the Supabase session pooler as
+  `demo_reader`: read-only, 10 rules detected, generation PASS, similarity 96%.
+- **IN PROGRESS:** —
 - **NEXT:** F9 deploy (Railway, 1 worker), then backlog enhancements.
 
 ## Haider (frontend + documents/export)
