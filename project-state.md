@@ -100,7 +100,12 @@ synthetic data studio** (see `idea.md`).
 - **DONE (UI pass, 2026-09-30):** landing page rebuilt with the new logo (theme blue) and
   the headline "Test environments, not just fake data."; source picker redesigned; schema,
   results and export layout fixes; sidebar workspaces navigate; app-wide font-size fix.
-- **NEXT:** browser QA (`Manual Testing/frontendtest1–3.md`), H8 deploy.
+- **DONE (redesign from the Excalidraw sketch, 2026-09-30, made in F's session with H's OK):**
+  floating-wordmark hero + single Launch button, centered header nav, walkthrough
+  How-it-works, security data-flow section; closing CTA / preview / comparison removed;
+  no sidebar on the source page, reordered source picker, centered 4-stage generating
+  card, ZIP-first export. New dependency: `motion`.
+- **NEXT:** browser QA (`Manual Testing/frontendtest1–4.md`), H8 deploy.
 
 ## BLOCKED
 

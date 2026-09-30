@@ -68,6 +68,7 @@ export function EdgeCasesCard({
             onChange={(e) => onInstructionChange(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && instruction.trim() && !loading && void suggest()}
             disabled={disabled || loading}
+            placeholder="For example: late payments and duplicate customers"
             className={textInputClass}
           />
           <SubmitButton

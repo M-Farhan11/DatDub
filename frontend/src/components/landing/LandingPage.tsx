@@ -1,5 +1,3 @@
-import { ClosingCta } from "./ClosingCta"
-import { Comparison } from "./Comparison"
 import { Faq } from "./Faq"
 import { Features } from "./Features"
 import { Footer } from "./Footer"
@@ -7,30 +5,22 @@ import { Hero } from "./Hero"
 import { HowItWorks } from "./HowItWorks"
 import { Navbar } from "./Navbar"
 import { PrivacyBand } from "./PrivacyBand"
-import { ProductPreview } from "./ProductPreview"
 
 interface LandingPageProps {
-  onOpenStudio: () => void
-  onTryExample: () => void
+  onLaunch: () => void
 }
 
-/**
- * Story order: promise (hero) → proof (preview) → why it is different →
- * how it works → capabilities → trust → questions → action.
- */
-export function LandingPage({ onOpenStudio, onTryExample }: LandingPageProps) {
+/** Story order: the name (hero) → how it works → what it does → why it is safe → questions. */
+export function LandingPage({ onLaunch }: LandingPageProps) {
   return (
     <div id="top" className="min-h-dvh bg-page">
-      <Navbar onOpenStudio={onOpenStudio} />
+      <Navbar onLaunch={onLaunch} />
       <main className="w-full pt-16">
-        <Hero onOpenStudio={onOpenStudio} onTryExample={onTryExample} />
-        <ProductPreview />
-        <Comparison />
+        <Hero onLaunch={onLaunch} />
         <HowItWorks />
         <Features />
         <PrivacyBand />
         <Faq />
-        <ClosingCta onOpenStudio={onOpenStudio} onTryExample={onTryExample} />
       </main>
       <Footer />
     </div>

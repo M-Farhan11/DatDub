@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react"
 import { Database, FileSpreadsheet, LayoutTemplate, type LucideIcon } from "lucide-react"
 import { ErrorCallout } from "@/components/shared/ErrorCallout"
 import type { SourceScreen } from "@/state/studioReducer"
@@ -40,28 +39,14 @@ const EXISTING_DATA: SourceOption[] = [
   },
 ]
 
-interface SourcePickerProps {
-  /** Load the finance example straight away (from the landing page link). */
-  autoLoadExample?: boolean
-  onExampleStarted?: () => void
-}
-
-export function SourcePicker({ autoLoadExample = false, onExampleStarted }: SourcePickerProps) {
+/** Sources from existing data first, then "or" describe it in words, then the example. */
+export function SourcePicker() {
   const { dispatch } = useStudio()
   const { load, loadingId, error } = useLoadTemplate()
-  const started = useRef(false)
-
-  useEffect(() => {
-    if (autoLoadExample && !started.current) {
-      started.current = true
-      onExampleStarted?.()
-      void load("finance")
-    }
-  }, [autoLoadExample, load, onExampleStarted])
 
   return (
-    <div className="mx-auto w-full max-w-[960px] px-gutter-lg pt-10 pb-16 md:pt-12">
-      <header className="mb-8 text-center">
+    <div className="mx-auto w-full max-w-[1000px] px-gutter-lg pt-10 pb-16 md:pt-14">
+      <header className="mb-10 text-center">
         <h1 className="font-heading text-headline-xl font-medium tracking-tight text-ink md:text-display">
           Where should we start?
         </h1>
@@ -70,25 +55,28 @@ export function SourcePicker({ autoLoadExample = false, onExampleStarted }: Sour
         </p>
       </header>
 
-      <QuickDescribeCard onExpand={() => dispatch({ type: "openSource", screen: "prompt" })} />
-
-      <div className="mt-8">
-        <h2 className="mb-3 font-heading text-label-lg font-medium text-ink-muted">Or start from existing data</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {EXISTING_DATA.map((option) => (
-            <SourceOptionCard
-              key={option.screen}
-              title={option.title}
-              description={option.description}
-              icon={option.icon}
-              tags={option.tags}
-              onSelect={() => dispatch({ type: "openSource", screen: option.screen })}
-            />
-          ))}
-        </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {EXISTING_DATA.map((option) => (
+          <SourceOptionCard
+            key={option.screen}
+            title={option.title}
+            description={option.description}
+            icon={option.icon}
+            tags={option.tags}
+            onSelect={() => dispatch({ type: "openSource", screen: option.screen })}
+          />
+        ))}
       </div>
 
-      <div className="mt-8">
+      <div className="my-8 flex items-center gap-4" role="separator" aria-label="or">
+        <span className="h-px flex-1 bg-line" aria-hidden="true" />
+        <span className="font-heading text-label-lg font-medium text-hint" aria-hidden="true">or</span>
+        <span className="h-px flex-1 bg-line" aria-hidden="true" />
+      </div>
+
+      <QuickDescribeCard onExpand={() => dispatch({ type: "openSource", screen: "prompt" })} />
+
+      <div className="mt-10">
         {error && <ErrorCallout className="mb-4" title="The finance example could not be loaded" message={error} />}
         <ExampleBanner loading={loadingId === "finance"} onLoad={() => void load("finance")} />
       </div>

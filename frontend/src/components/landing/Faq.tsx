@@ -22,7 +22,7 @@ const QUESTIONS = [
 
 export function Faq() {
   return (
-    <section id="faq" aria-labelledby="faq-title" className="w-full scroll-mt-16 border-y border-chrome/60 bg-panel py-14 md:py-16">
+    <section id="faq" aria-labelledby="faq-title" className="w-full scroll-mt-16 border-y border-chrome/60 bg-panel py-20 md:py-24">
       <div className="mx-auto max-w-[760px] px-margin md:px-margin-lg">
         <SectionHeading id="faq-title" title="Questions teams ask first" />
         <div className="mt-8 divide-y divide-line overflow-hidden rounded-xl border border-line bg-card shadow-sm">

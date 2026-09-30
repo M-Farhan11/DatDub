@@ -36,16 +36,16 @@ const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
 
 export function Features() {
   return (
-    <section id="features" aria-labelledby="features-title" className="w-full scroll-mt-16 border-y border-chrome/60 bg-panel py-14 md:py-16">
+    <section id="features" aria-labelledby="features-title" className="w-full scroll-mt-16 border-y border-chrome/60 bg-panel py-20 md:py-24">
       <div className="mx-auto max-w-[1100px] px-margin md:px-margin-lg">
         <SectionHeading
           id="features-title"
-          title="Everything a realistic test database needs"
-          subtitle="Built for developers, QA engineers and data teams who cannot use production data."
+          title="Core features"
+          subtitle="Everything a realistic test database needs, for teams who cannot use production data."
         />
         <ul className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(({ icon: Icon, title, body }) => (
-            <li key={title} className="rounded-xl border border-line bg-card p-6 shadow-sm">
+            <li key={title} className="rounded-2xl border border-line bg-card p-6 shadow-sm">
               <span className="flex size-10 items-center justify-center rounded-lg bg-primary-tint text-primary-deep">
                 <Icon className="size-5" aria-hidden="true" />
               </span>

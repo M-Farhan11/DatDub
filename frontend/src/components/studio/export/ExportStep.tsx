@@ -36,6 +36,7 @@ export function ExportStep() {
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       <div className="mx-auto w-full max-w-[1100px] flex-1 space-y-6 px-4 pt-8 pb-10 md:px-gutter-lg">
         <PageHeader
+          align="center"
           title="Your dataset is ready"
           subtitle={
             <span className="inline-flex items-center gap-2">
@@ -44,20 +45,23 @@ export function ExportStep() {
             </span>
           }
         />
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        {/* The ZIP is the main download; single tables and the recreate recipe sit below it. */}
+        <div className="mx-auto w-full max-w-[680px]">
           <ZipDownloadCard
             datasetId={result.dataset_id}
             name={schema.name}
             hasInvoices={Boolean(schema.document_hints?.invoice)}
             onExpired={onExpired}
           />
-          <TableDownloads datasetId={result.dataset_id} schema={schema} rowCounts={result.row_counts} onExpired={onExpired} />
         </div>
-        <RecreateCard
-          schemaName={schema.name}
-          config={state.generatedWith?.config ?? state.config}
-          scenarios={state.generatedWith?.scenarios ?? []}
-        />
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+          <TableDownloads datasetId={result.dataset_id} schema={schema} rowCounts={result.row_counts} onExpired={onExpired} />
+          <RecreateCard
+            schemaName={schema.name}
+            config={state.generatedWith?.config ?? state.config}
+            scenarios={state.generatedWith?.scenarios ?? []}
+          />
+        </div>
       </div>
 
       <BottomBar onBack={() => dispatch({ type: "goTo", step: "Results" })} backLabel="Back to results">

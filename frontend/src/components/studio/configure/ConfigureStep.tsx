@@ -73,12 +73,15 @@ export function ConfigureStep() {
         />
         {error && <ErrorCallout className="mt-6" title="Generation did not finish" message={error} />}
         <div className="mt-8 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-          <SizeSettingsCard
-            schema={schema}
-            config={config}
-            onRowsChange={(table, count) => dispatch({ type: "setRows", table, count })}
-            onConfigChange={(patch) => dispatch({ type: "setConfig", patch })}
-          />
+          {/* Settings stay in view while a long edge-case list scrolls beside them. */}
+          <div className="lg:sticky lg:top-24">
+            <SizeSettingsCard
+              schema={schema}
+              config={config}
+              onRowsChange={(table, count) => dispatch({ type: "setRows", table, count })}
+              onConfigChange={(patch) => dispatch({ type: "setConfig", patch })}
+            />
+          </div>
           <EdgeCasesCard
             schema={schema}
             instruction={state.instruction}

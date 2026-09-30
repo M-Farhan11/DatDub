@@ -1,4 +1,12 @@
-import { Clock, DatabaseZap, EyeOff, UserRoundX, type LucideIcon } from "lucide-react"
+import { ArrowRight, Clock, Database, DatabaseZap, EyeOff, Sparkles, UserRoundX, Workflow, type LucideIcon } from "lucide-react"
+import { SectionHeading } from "./SectionHeading"
+
+/** Where each kind of information goes, left to right. */
+const FLOW: { icon: LucideIcon; title: string; keeps: string[] }[] = [
+  { icon: Database, title: "Your source", keeps: ["Real rows stay here", "Opened read-only", "Credentials used once"] },
+  { icon: Workflow, title: "DatDub engine", keeps: ["Profiles a small sample", "Keeps it in memory only", "Writes every new row"] },
+  { icon: Sparkles, title: "AI model", keeps: ["Column names and types", "Summary statistics", "Never a single row"] },
+]
 
 const POINTS: { icon: LucideIcon; title: string; body: string }[] = [
   {
@@ -23,32 +31,63 @@ const POINTS: { icon: LucideIcon; title: string; body: string }[] = [
   },
 ]
 
-/** Trust section: same colours as the rest of the page, a two-column layout to set it apart. */
 export function PrivacyBand() {
   return (
-    <section id="privacy" aria-labelledby="privacy-title" className="w-full scroll-mt-16 py-14 md:py-16">
-      <div className="mx-auto grid max-w-[1100px] items-center gap-10 px-margin md:px-margin-lg lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <div>
-          <p className="mb-3 inline-flex rounded-full bg-primary-tint px-3 py-1 font-heading text-label-md font-medium text-primary-deep">
-            Privacy
-          </p>
-          <h2 id="privacy-title" className="font-heading text-headline-lg font-medium tracking-tight text-ink md:text-headline-xl">
-            Safe to use with real systems
-          </h2>
-          <p className="mt-3 max-w-md text-body-lg text-ink-muted">
-            Point DatDub at a real database or real files. Your rows never go to an AI and are never stored.
-          </p>
-        </div>
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {POINTS.map(({ icon: Icon, title, body }) => (
-            <li key={title} className="rounded-xl border border-line bg-card p-5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-tint text-primary-deep">
-                  <Icon className="size-[18px]" aria-hidden="true" />
+    <section
+      id="privacy"
+      aria-labelledby="privacy-title"
+      className="w-full scroll-mt-16 py-20 md:py-24"
+    >
+      <div className="mx-auto max-w-[1160px] px-margin md:px-margin-lg">
+        <SectionHeading
+          id="privacy-title"
+          title="How we keep you secure"
+          subtitle="Point DatDub at a real database or real files. Here is exactly what goes where."
+        />
+
+        {/* Data flow: what each stage is allowed to see. */}
+        <ol aria-label="Where your data goes" className="mt-10 grid grid-cols-1 items-stretch gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr]">
+          {FLOW.map(({ icon: Icon, title, keeps }, i) => (
+            <li key={title} className="contents">
+              {i > 0 && (
+                <span aria-hidden="true" className="flex items-center justify-center text-hint">
+                  <ArrowRight className="size-5 rotate-90 md:rotate-0" />
                 </span>
-                <h3 className="font-heading text-headline-sm font-medium text-ink">{title}</h3>
+              )}
+              <div
+                className={
+                  i === 2
+                    ? "rounded-2xl border border-primary/30 bg-primary-tint/50 p-5"
+                    : "rounded-2xl border border-line bg-card p-5"
+                }
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                    <Icon className="size-[18px]" aria-hidden="true" />
+                  </span>
+                  <h3 className="font-heading text-headline-sm font-medium text-ink">{title}</h3>
+                </div>
+                <ul className="mt-4 space-y-1.5 text-body-md text-ink-muted">
+                  {keeps.map((k) => (
+                    <li key={k} className="flex items-center gap-2">
+                      <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                      {k}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <p className="mt-3 text-body-md text-ink-muted">{body}</p>
+            </li>
+          ))}
+        </ol>
+
+        <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {POINTS.map(({ icon: Icon, title, body }) => (
+            <li key={title} className="rounded-2xl border border-line bg-card p-5 shadow-sm">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-primary-tint text-primary-deep">
+                <Icon className="size-[18px]" aria-hidden="true" />
+              </span>
+              <h3 className="mt-4 font-heading text-headline-sm font-medium text-ink">{title}</h3>
+              <p className="mt-2 text-body-md text-ink-muted">{body}</p>
             </li>
           ))}
         </ul>
