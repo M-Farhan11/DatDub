@@ -18,8 +18,6 @@ function workspaceState(state: StudioState): WorkspaceState {
   if (!state.result) {
     disabledReason.tabular = "generate a dataset first"
     disabledReason.documents = "generate a dataset first"
-  } else if (!hasInvoices) {
-    disabledReason.documents = "this schema has no invoices"
   }
 
   let active: Workspace | null = null
@@ -27,7 +25,8 @@ function workspaceState(state: StudioState): WorkspaceState {
   else if (state.step === "Results" && state.resultsTab === "data") active = "tabular"
   else if (state.step === "Results" && state.resultsTab === "invoices") active = "documents"
 
-  return { active, disabledReason }
+  // Documents only exist for invoice-like schemas; otherwise the item is hidden, not left dead.
+  return { active, disabledReason, hidden: hasInvoices ? [] : ["documents"] }
 }
 
 export function AppShell({ children, onHome }: AppShellProps) {

@@ -16,6 +16,8 @@ export interface WorkspaceState {
   active: Workspace | null
   /** Why a workspace is unavailable; missing = available. */
   disabledReason: Partial<Record<Workspace, string>>
+  /** Workspaces that do not apply to this schema at all. */
+  hidden: Workspace[]
 }
 
 interface SidebarProps {
@@ -57,7 +59,7 @@ export function Sidebar({ expanded, onToggle, onHome, workspace, onOpen }: Sideb
         </WithTooltip>
 
         <nav aria-label="Workspace" className="flex flex-col gap-2">
-          {ITEMS.map(({ id, label, hint, icon: Icon }) => {
+          {ITEMS.filter((item) => !workspace.hidden.includes(item.id)).map(({ id, label, hint, icon: Icon }) => {
             const isActive = workspace.active === id
             const reason = workspace.disabledReason[id]
             const tooltip = reason ? `${label}: ${reason}` : expanded ? hint : `${label}: ${hint}`

@@ -4,10 +4,9 @@ import { errorMessage, fetchFile, invoicePdfUrl, isApiError, listInvoices } from
 import { EmptyState } from "@/components/shared/EmptyState"
 import { ErrorCallout } from "@/components/shared/ErrorCallout"
 import { LoadingSkeleton } from "@/components/shared/LoadingSkeleton"
-import { MonoText } from "@/components/shared/MonoText"
 import { formatInt } from "@/lib/format"
 import { textInputClass } from "@/lib/styles"
-import { cn } from "@/lib/utils"
+import { ChipStrip } from "./ChipStrip"
 
 type Preview =
   | { kind: "loading" }
@@ -88,46 +87,37 @@ export function InvoicesTab({ datasetId, onExpired }: InvoicesTabProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-      <nav aria-label="Invoices" className="flex flex-col gap-3">
-        <div>
-          <label htmlFor="invoice-search" className="sr-only">
-            Find an invoice by ID
-          </label>
-          <input
-            id="invoice-search"
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Find INV-00042"
-            className={`${textInputClass} font-mono text-code-md`}
-          />
-        </div>
-        <ul className="max-h-[max(240px,calc(100dvh-520px))] space-y-1 overflow-y-auto">
-          {shown.map((id) => (
-            <li key={id}>
-              <button
-                type="button"
-                onClick={() => setSelected(id)}
-                aria-current={id === selected ? "true" : undefined}
-                className={cn(
-                  "w-full rounded-lg px-3 py-2 text-left transition-colors",
-                  id === selected ? "bg-primary-tint text-primary-deep" : "text-ink hover:bg-surface-low",
-                )}
-              >
-                <MonoText>{id}</MonoText>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <p className="tabular text-body-sm text-hint" aria-live="polite">
-          {matches.length === 0
-            ? "No invoice matches that ID."
-            : matches.length > LIST_LIMIT
-              ? `Showing ${LIST_LIMIT} of ${formatInt(matches.length)} invoices. Type an ID to find others.`
-              : `${formatInt(matches.length)} ${matches.length === 1 ? "invoice" : "invoices"}`}
-        </p>
-      </nav>
+    <div className="space-y-4">
+      <ChipStrip
+        label="Invoices"
+        items={shown.map((id) => ({ id, label: id }))}
+        value={selected}
+        onChange={setSelected}
+        lead={
+          <>
+            <label htmlFor="invoice-search" className="sr-only">
+              Find an invoice by ID
+            </label>
+            <input
+              id="invoice-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Find INV-00042"
+              className={`${textInputClass} font-mono text-code-md`}
+            />
+          </>
+        }
+        trail={
+          <span className="tabular" aria-live="polite">
+            {matches.length === 0
+              ? "No invoice matches that ID."
+              : matches.length > LIST_LIMIT
+                ? `${LIST_LIMIT} of ${formatInt(matches.length)}`
+                : `${formatInt(matches.length)} ${matches.length === 1 ? "invoice" : "invoices"}`}
+          </span>
+        }
+      />
 
       <div className="min-w-0">
         {preview.kind === "loading" && (
@@ -139,7 +129,7 @@ export function InvoicesTab({ datasetId, onExpired }: InvoicesTabProps) {
           <iframe
             title={`Invoice ${selected ?? ""}`}
             src={preview.url}
-            className="h-[max(460px,calc(100dvh-400px))] w-full rounded-xl border border-line bg-card shadow-sm"
+            className="h-[max(560px,calc(100dvh-330px))] w-full rounded-xl border border-line bg-card shadow-sm"
           />
         )}
         {preview.kind === "coming-soon" && (

@@ -4,10 +4,9 @@ import { errorMessage, getTablePage, isApiError } from "@/api/client"
 import type { DatasetSchema, GenerateResponse, Row } from "@/api/types"
 import { ErrorCallout } from "@/components/shared/ErrorCallout"
 import { LoadingSkeleton } from "@/components/shared/LoadingSkeleton"
-import { MonoText } from "@/components/shared/MonoText"
 import { Button } from "@/components/ui/button"
 import { formatInt } from "@/lib/format"
-import { cn } from "@/lib/utils"
+import { ChipStrip } from "./ChipStrip"
 import { DataGrid } from "./DataGrid"
 
 const PAGE_SIZE = 50
@@ -72,27 +71,13 @@ export function DataTab({ schema, result, table, onTableChange, onExpired }: Dat
   const tables = Object.keys(result.row_counts)
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-      <nav aria-label="Tables">
-        <ul className="space-y-1">
-          {tables.map((name) => (
-            <li key={name}>
-              <button
-                type="button"
-                onClick={() => selectTable(name)}
-                aria-current={name === table ? "true" : undefined}
-                className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors",
-                  name === table ? "bg-primary-tint text-primary-deep" : "text-ink hover:bg-surface-low",
-                )}
-              >
-                <MonoText className="truncate">{name}</MonoText>
-                <MonoText className="text-code-sm text-ink-muted">{formatInt(result.row_counts[name])}</MonoText>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
+    <div className="space-y-4">
+      <ChipStrip
+        label="Tables"
+        items={tables.map((name) => ({ id: name, label: name, meta: formatInt(result.row_counts[name]) }))}
+        value={table}
+        onChange={selectTable}
+      />
 
       <div className="min-w-0 space-y-3">
         {error ? (

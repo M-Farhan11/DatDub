@@ -51,7 +51,7 @@ export function ResultsStep() {
 
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
-      <div className="mx-auto w-full max-w-[1280px] flex-1 space-y-6 px-4 pt-8 pb-10 md:px-gutter-lg">
+      <div className="mx-auto w-full max-w-[1680px] flex-1 space-y-6 px-4 pt-8 pb-10 md:px-gutter-lg">
         <ResultsHeader name={schema.name} seed={state.generatedWith?.config.seed ?? state.config.seed} result={result} />
         <Tabs label="Results" items={items} value={activeTab} onChange={setTab} idPrefix="results" />
         <div role="tabpanel" id={`results-panel-${activeTab}`} aria-labelledby={`results-tab-${activeTab}`} tabIndex={0}>
