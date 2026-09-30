@@ -18,8 +18,6 @@ function workspaceState(state: StudioState): WorkspaceState {
   if (!state.result) {
     disabledReason.tabular = "generate a dataset first"
     disabledReason.documents = "generate a dataset first"
-  } else if (!hasInvoices) {
-    disabledReason.documents = "this schema has no invoices"
   }
 
   let active: Workspace | null = null
@@ -27,13 +25,16 @@ function workspaceState(state: StudioState): WorkspaceState {
   else if (state.step === "Results" && state.resultsTab === "data") active = "tabular"
   else if (state.step === "Results" && state.resultsTab === "invoices") active = "documents"
 
-  return { active, disabledReason }
+  // Documents only exist for invoice-like schemas; otherwise the item is hidden, not left dead.
+  return { active, disabledReason, hidden: hasInvoices ? [] : ["documents"] }
 }
 
 export function AppShell({ children, onHome }: AppShellProps) {
   const { state, dispatch } = useStudio()
   const [expanded, setExpanded] = useState(false)
   const title = state.schema?.name ?? "New dataset"
+  // The workspace sidebar only has something to offer once a schema exists.
+  const showSidebar = state.step !== "Source"
 
   const openWorkspace = (workspace: Workspace) => {
     if (workspace === "relational") dispatch({ type: "goTo", step: "Schema" })
@@ -42,25 +43,29 @@ export function AppShell({ children, onHome }: AppShellProps) {
 
   return (
     <div className="min-h-dvh bg-surface-low">
-      <Sidebar
-        expanded={expanded}
-        onToggle={() => setExpanded((v) => !v)}
-        onHome={onHome}
-        workspace={workspaceState(state)}
-        onOpen={openWorkspace}
-      />
+      {showSidebar && (
+        <Sidebar
+          expanded={expanded}
+          onToggle={() => setExpanded((v) => !v)}
+          onHome={onHome}
+          workspace={workspaceState(state)}
+          onOpen={openWorkspace}
+        />
+      )}
       <TopBar
         title={title}
         step={state.step}
         reached={state.reached}
         onSelectStep={(step) => dispatch({ type: "goTo", step })}
-        sidebarExpanded={expanded}
+        sidebar={showSidebar ? (expanded ? "expanded" : "collapsed") : "none"}
+        onHome={onHome}
       />
       {/* On small screens the expanded sidebar overlays the content instead of pushing it. */}
       <main
         className={cn(
-          "flex min-h-dvh flex-col pt-16 pl-16 transition-[padding] duration-200 ease-out",
-          expanded && "md:pl-52",
+          "flex min-h-dvh flex-col pt-16 transition-[padding] duration-200 ease-out",
+          showSidebar && "pl-16",
+          showSidebar && expanded && "md:pl-52",
         )}
       >
         {children}

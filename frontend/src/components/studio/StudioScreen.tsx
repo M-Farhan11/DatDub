@@ -21,13 +21,8 @@ function StepFallback() {
   )
 }
 
-interface StudioScreenProps {
-  autoLoadExample: boolean
-  onExampleStarted: () => void
-}
-
 /** Renders the screen for the current step. */
-export function StudioScreen({ autoLoadExample, onExampleStarted }: StudioScreenProps) {
+export function StudioScreen() {
   const { state } = useStudio()
 
   if (state.step === "Source") {
@@ -41,7 +36,7 @@ export function StudioScreen({ autoLoadExample, onExampleStarted }: StudioScreen
       case "template":
         return <TemplateSource />
       default:
-        return <SourcePicker autoLoadExample={autoLoadExample} onExampleStarted={onExampleStarted} />
+        return <SourcePicker />
     }
   }
 

@@ -69,8 +69,15 @@ synthetic data studio** (see `idea.md`).
   `demo_reader` read-only role (no password yet), RLS + Data API lockdown.
 - **DONE (F8 verified):** `/api/schema/from-db` against the Supabase session pooler as
   `demo_reader`: read-only, 10 rules detected, generation PASS, similarity 96%.
+- **DONE (real-AI end-to-end QA, 2026-09-30):** full UI flow run in Playwright against
+  the real backend + real AI (frontendtest1 tests 1–17 pass). Fixed: numbers ignored
+  `range` rules when generating (GPA 0–4 came out as 4.0 on every row); schema prompt now
+  asks for realistic domain values (diagnosis, course_name, …) and keeps user-named values
+  exact. Root cause of "always mock data": `frontend/.env.local` had `VITE_USE_FIXTURES=true`.
+  QA doc: `Manual Testing/backendtest5.md`.
 - **IN PROGRESS:** —
-- **NEXT:** F9 deploy (Railway, 1 worker), then backlog enhancements.
+- **NEXT:** F9 deploy (Railway, 1 worker), then backlog enhancements. Gemini free-tier quota
+  was exhausted (429) during QA; Groq fallback served every call.
 
 ## Haider (frontend + documents/export)
 
@@ -93,7 +100,12 @@ synthetic data studio** (see `idea.md`).
 - **DONE (UI pass, 2026-09-30):** landing page rebuilt with the new logo (theme blue) and
   the headline "Test environments, not just fake data."; source picker redesigned; schema,
   results and export layout fixes; sidebar workspaces navigate; app-wide font-size fix.
-- **NEXT:** browser QA (`Manual Testing/frontendtest1–3.md`), H8 deploy.
+- **DONE (redesign from the Excalidraw sketch, 2026-09-30, made in F's session with H's OK):**
+  floating-wordmark hero + single Launch button, centered header nav, walkthrough
+  How-it-works, security data-flow section; closing CTA / preview / comparison removed;
+  no sidebar on the source page, reordered source picker, centered 4-stage generating
+  card, ZIP-first export. New dependency: `motion`.
+- **NEXT:** browser QA (`Manual Testing/frontendtest1–4.md`), H8 deploy.
 
 ## BLOCKED
 

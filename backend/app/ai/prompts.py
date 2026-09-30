@@ -44,6 +44,9 @@ Requirements:
 - semantic_type is one of: {_SEMANTIC_TYPES}
 - mark person-identifying columns (names, emails, phones, addresses, IBANs) as pii=true
 - use allowed_values for status/category columns; set min/max for numeric amounts and quantities
+- when the description names the values or a range for a column, use exactly those and nothing else
+- for other domain text columns that are not PII or free prose (e.g. diagnosis, vaccine_name,
+  course_name, product_name, department), give allowed_values with 8-20 realistic examples
 - max_children is a realistic upper bound of child rows per parent
 - add rules only from the catalogue below and only when they are clearly implied
 - put any assumptions you made in `notes` (short sentences)

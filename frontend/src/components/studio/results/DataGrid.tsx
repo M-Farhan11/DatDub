@@ -41,7 +41,7 @@ export function DataGrid({ columns, numeric, rows, primaryKey, affected, offset 
   const table = useTable({ features, columns: defs, data: rows })
 
   return (
-    <div className="max-h-[max(300px,calc(100dvh-440px))] overflow-auto rounded-xl border border-line bg-card shadow-sm">
+    <div className="max-h-[max(420px,calc(100dvh-360px))] overflow-auto rounded-xl border border-line bg-card shadow-sm">
       <table className="w-full border-collapse text-left">
         <thead className="sticky top-0 z-10 bg-surface-low">
           {table.getHeaderGroups().map((group) => (
